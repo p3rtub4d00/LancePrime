@@ -1,12 +1,14 @@
 const socket = io();
 let meuNome = localStorage.getItem('usuario');
 
+function mostrarSecao(s) {
+    document.getElementById('secao-home').style.display = s === 'home' ? 'block' : 'none';
+    document.getElementById('secao-vender').style.display = s === 'vender' ? 'block' : 'none';
+}
+
 function fazerLogin() {
-    const nome = prompt("Qual seu nome para participar?");
-    if(nome) {
-        localStorage.setItem('usuario', nome);
-        location.reload();
-    }
+    const nome = prompt("Seu nome para lances:");
+    if(nome) { localStorage.setItem('usuario', nome); location.reload(); }
 }
 
 if(meuNome) {
@@ -24,20 +26,35 @@ function renderizarItem(item) {
                 <h3>${item.nome}</h3>
                 <span class="price-tag" id="preco-${item.id}">R$ ${item.lanceAtual.toLocaleString('pt-BR')}</span>
                 <p class="licitante">Líder: <strong id="user-${item.id}">${item.ultimoLicitante}</strong></p>
-                <button class="btn-bid" id="btn-${item.id}" onclick="darLance(${item.id}, ${item.lanceAtual})">Dar Lance (+ R$50)</button>
+                <button class="btn-bid" id="btn-${item.id}" onclick="darLance(${item.id})">Dar Lance (+ R$50)</button>
             </div>
         </div>
     `);
 }
 
-async function darLance(id, precoAtual) {
+async function darLance(id) {
     if(!meuNome) return fazerLogin();
+    const card = document.getElementById(`preco-${id}`);
+    const precoAtual = parseFloat(card.innerText.replace('R$', '').replace(/\./g, '').replace(',', '.'));
     
     await fetch('/api/lance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, valor: precoAtual + 50, usuario: meuNome })
     });
+}
+
+async function cadastrarItem() {
+    const nome = document.getElementById('nome-item').value;
+    const preco = document.getElementById('preco-item').value;
+    const img = document.getElementById('img-item').value;
+    
+    await fetch('/api/novo-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, precoInicial: preco, imagem: img })
+    });
+    mostrarSecao('home');
 }
 
 socket.on('tick', (itens) => {
@@ -56,5 +73,7 @@ socket.on('atualizarLance', (d) => {
     document.getElementById(`preco-${d.id}`).innerText = `R$ ${d.novoValor.toLocaleString('pt-BR')}`;
     document.getElementById(`user-${d.id}`).innerText = d.licitante;
 });
+
+socket.on('novoItem', (item) => renderizarItem(item));
 
 fetch('/api/leiloes').then(r => r.json()).then(itens => itens.forEach(renderizarItem));
