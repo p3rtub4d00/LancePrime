@@ -1,59 +1,46 @@
+// backend/server.js
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { cors: { origin: "*" } });
 
-app.use(express.json());
-app.use(express.static('public'));
+// Dados em memória (Substituirá o Banco de Dados por enquanto)
+let leilao = {
+    id: 1,
+    item: "MacBook Pro M3 Max",
+    valorAtual: 5000,
+    incrementoMinimo: 200,
+    termino: Date.now() + 600000, // 10 minutos a partir de agora
+    lances: []
+};
 
-let leiloes = [
-    { id: 1, nome: "iPhone 15 Pro", lanceAtual: 4500, ultimoLicitante: "Nenhum", imagem: "https://picsum.photos/300/200?random=1", tempo: 600, ativo: true },
-    { id: 2, nome: "Macbook Air M2", lanceAtual: 7200, ultimoLicitante: "Nenhum", imagem: "https://picsum.photos/300/200?random=2", tempo: 300, ativo: true }
-];
+io.on('connection', (socket) => {
+    // Envia o estado atual do leilão para quem conecta
+    socket.emit('update_auction', leilao);
 
-setInterval(() => {
-    leiloes.forEach(item => {
-        if (item.ativo && item.tempo > 0) {
-            item.tempo--;
-            if (item.tempo === 0) item.ativo = false;
+    socket.on('dar_lance', (data) => {
+        const { valor, usuario } = data;
+        const agora = Date.now();
+
+        // Validação de valor
+        if (valor >= leilao.valorAtual + leilao.incrementoMinimo && agora < leilao.termino) {
+            leilao.valorAtual = valor;
+            leilao.lances.unshift({ usuario, valor, data: new Date() });
+
+            // REGRA DOS 2 MINUTOS
+            const tempoRestante = leilao.termino - agora;
+            if (tempoRestante < 120000) { // menos de 2 min
+                leilao.termino = agora + 120000; // Reseta para 2 min
+            }
+
+            io.emit('update_auction', leilao);
+            io.emit('notificacao', { msg: `Novo lance de R$ ${valor}!`, autor: usuario });
         }
     });
-    io.emit('tick', leiloes.map(i => ({ id: i.id, tempo: i.tempo, ativo: i.ativo })));
-}, 1000);
-
-app.get('/api/leiloes', (req, res) => res.json(leiloes));
-
-app.post('/api/lance', (req, res) => {
-    const { id, valor, usuario } = req.body;
-    const item = leiloes.find(l => l.id === id);
-    if (item && item.ativo && valor > item.lanceAtual) {
-        item.lanceAtual = valor;
-        item.ultimoLicitante = usuario || "Anônimo";
-        if(item.tempo < 30) item.tempo += 30;
-        io.emit('atualizarLance', { id: item.id, novoValor: item.lanceAtual, licitante: item.ultimoLicitante });
-        return res.json({ success: true });
-    }
-    res.status(400).json({ success: false });
 });
 
-app.post('/api/novo-item', (req, res) => {
-    const { nome, precoInicial, imagem } = req.body;
-    const novo = {
-        id: Date.now(),
-        nome,
-        lanceAtual: parseFloat(precoInicial),
-        ultimoLicitante: "Nenhum",
-        imagem: imagem || `https://picsum.photos/300/200?random=${Math.random()}`,
-        tempo: 600,
-        ativo: true
-    };
-    leiloes.push(novo);
-    io.emit('novoItem', novo);
-    res.json({ success: true });
-});
-
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Servidor rodando!`));
+server.listen(3001, () => console.log("Servidor rodando na porta 3001"));
