@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LancePrime | Leilões Online</title>
+    <title>LancePrime | Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
@@ -11,20 +11,31 @@
     <nav class="navbar">
         <div class="logo">Lance<span>Prime</span></div>
         <div class="nav-links">
-            <a href="#">Início</a>
-            <button class="btn-primary" onclick="alert('Cadastro em breve!')">Criar Conta</button>
+            <button class="btn-text" onclick="mostrarSecao('home')">Leilões</button>
+            <button class="btn-text" onclick="mostrarSecao('vender')">Anunciar Item</button>
+            <button class="btn-primary" onclick="alert('Login simulado!')">Minha Conta</button>
         </div>
     </nav>
 
-    <header class="hero">
-        <h1>Arremate itens incríveis em tempo real.</h1>
-        <p>A plataforma de leilões mais segura e rápida do Brasil.</p>
-    </header>
+    <main id="secao-home" class="container">
+        <header class="hero">
+            <h1>Lances em Tempo Real</h1>
+            <p>Encontre as melhores oportunidades hoje.</p>
+        </header>
+        <div id="leiloes-grid" class="grid"></div>
+    </main>
 
-    <main class="container">
-        <h2 class="section-title">Itens em Destaque</h2>
-        <div id="leiloes-grid" class="grid">
-            </div>
+    <main id="secao-vender" class="container" style="display:none;">
+        <div class="form-card">
+            <h2>Anunciar Novo Item</h2>
+            <p>Preencha os dados para começar o leilão.</p>
+            <form id="form-item">
+                <input type="text" id="nome-item" placeholder="Nome do Produto" required>
+                <input type="number" id="preco-item" placeholder="Preço Inicial (R$)" required>
+                <input type="url" id="img-item" placeholder="URL da Imagem (opcional)">
+                <button type="submit" class="btn-bid">Publicar Leilão</button>
+            </form>
+        </div>
     </main>
 
     <script src="script.js"></script>
