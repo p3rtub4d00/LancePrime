@@ -10,28 +10,43 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static('public'));
 
+// Itens com tempo inicial em segundos (ex: 600 = 10 minutos)
 let leiloes = [
-    { id: 1, nome: "iPhone 15 Pro", lanceAtual: 4500, imagem: "https://picsum.photos/300/200?random=1" },
-    { id: 2, nome: "Macbook Air M2", lanceAtual: 7200, imagem: "https://picsum.photos/300/200?random=2" }
+    { id: 1, nome: "iPhone 15 Pro", lanceAtual: 4500, imagem: "https://picsum.photos/300/200?random=1", tempo: 600, ativo: true },
+    { id: 2, nome: "Macbook Air M2", lanceAtual: 7200, imagem: "https://picsum.photos/300/200?random=2", tempo: 300, ativo: true },
+    { id: 3, nome: "PlayStation 5", lanceAtual: 3100, imagem: "https://picsum.photos/300/200?random=3", tempo: 120, ativo: true }
 ];
 
-// Quando um usuário se conecta
+// Lógica do Cronómetro no Servidor
+setInterval(() => {
+    leiloes.forEach(item => {
+        if (item.ativo && item.tempo > 0) {
+            item.tempo--;
+            if (item.tempo === 0) {
+                item.ativo = false;
+                io.emit('leilaoEncerrado', { id: item.id });
+            }
+        }
+    });
+    io.emit('tick', leiloes.map(i => ({ id: i.id, tempo: i.tempo })));
+}, 1000);
+
 io.on('connection', (socket) => {
     console.log('Usuário conectado:', socket.id);
 });
 
-// Rota de listagem
 app.get('/api/leiloes', (req, res) => res.json(leiloes));
 
-// Rota de lance (Atualizada para emitir evento socket)
 app.post('/api/lance', (req, res) => {
     const { id, valor } = req.body;
     const item = leiloes.find(l => l.id === id);
 
-    if (item && valor > item.lanceAtual) {
+    if (item && item.ativo && valor > item.lanceAtual) {
         item.lanceAtual = valor;
-        // AVISA TODO MUNDO QUE O PREÇO MUDOU
-        io.emit('atualizarLance', { id: item.id, novoValor: item.lanceAtual });
+        // Se alguém der lance nos últimos 30 segundos, adicionamos mais 30 segundos (estilo profissional)
+        if(item.tempo < 30) item.tempo += 30;
+        
+        io.emit('atualizarLance', { id: item.id, novoValor: item.lanceAtual, novoTempo: item.tempo });
         return res.json({ success: true });
     }
     res.status(400).json({ success: false });
@@ -40,13 +55,15 @@ app.post('/api/lance', (req, res) => {
 app.post('/api/novo-item', (req, res) => {
     const { nome, precoInicial, imagem } = req.body;
     const novo = {
-        id: leiloes.length + 1,
+        id: Date.now(),
         nome,
         lanceAtual: parseFloat(precoInicial),
-        imagem: imagem || "https://picsum.photos/300/200?random=" + Math.random()
+        imagem: imagem || `https://picsum.photos/300/200?random=${Math.random()}`,
+        tempo: 600, // 10 minutos padrão
+        ativo: true
     };
     leiloes.push(novo);
-    io.emit('novoItemAdicionado', novo); // Avisa que tem item novo na vitrine
+    io.emit('novoItemAdicionado', novo);
     res.json({ success: true });
 });
 
