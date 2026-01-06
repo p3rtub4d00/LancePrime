@@ -11,13 +11,25 @@
     <nav class="navbar">
         <div class="logo">Lance<span>Prime</span></div>
         <div class="nav-links">
+            <button class="btn-link" onclick="mostrarSecao('home')">Leilões</button>
+            <button class="btn-link" onclick="mostrarSecao('vender')">Anunciar</button>
             <span id="user-display"></span>
             <button class="btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
         </div>
     </nav>
 
-    <main class="container">
+    <main id="secao-home" class="container">
         <div id="leiloes-grid" class="grid"></div>
+    </main>
+
+    <main id="secao-vender" class="container" style="display:none;">
+        <div class="form-card">
+            <h2>Novo Leilão</h2>
+            <input type="text" id="nome-item" placeholder="Nome do Produto">
+            <input type="number" id="preco-item" placeholder="Preço Inicial">
+            <input type="text" id="img-item" placeholder="Link da Imagem (URL)">
+            <button class="btn-bid" onclick="cadastrarItem()">Publicar Leilão</button>
+        </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
