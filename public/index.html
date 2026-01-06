@@ -3,68 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LancePrime | Leilões Online</title>
+    <title>LancePrime | Oficial</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar">
-        <div class="logo" onclick="mostrarSecao('home')" style="cursor:pointer">Lance<span>Prime</span></div>
+        <div class="logo">Lance<span>Prime</span></div>
         <div class="nav-links">
-            <button class="btn-text" onclick="mostrarSecao('home')">Leilões</button>
-            <button class="btn-text" onclick="mostrarSecao('vender')">Anunciar</button>
-            <span id="user-display" style="font-weight:600; color:var(--primary)"></span>
-            <button id="btn-login-trigger" class="btn-primary" onclick="abrirModalLogin()">Entrar</button>
+            <span id="user-display"></span>
+            <button class="btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
         </div>
     </nav>
 
-    <main id="secao-home" class="container">
-        <header class="hero">
-            <h1>Itens Exclusivos em Tempo Real</h1>
-            <p>Sua chance de arrematar o melhor preço.</p>
-        </header>
+    <main class="container">
         <div id="leiloes-grid" class="grid"></div>
     </main>
-
-    <main id="secao-detalhes" class="container" style="display:none;">
-        <button class="btn-text" onclick="mostrarSecao('home')">← Voltar para leilões</button>
-        <div class="product-detail-container">
-            <div class="product-image">
-                <img id="detalhe-img" src="" alt="">
-            </div>
-            <div class="product-info">
-                <div id="detalhe-timer" class="detail-timer">00:00</div>
-                <h1 id="detalhe-nome">Nome do Produto</h1>
-                <p class="description">Produto original com nota fiscal e garantia. O leilão encerra em breve, garanta seu lance agora!</p>
-                <div class="price-box">
-                    <span>Lance Atual:</span>
-                    <h2 id="detalhe-preco">R$ 0,00</h2>
-                </div>
-                <button id="btn-lance-detalhe" class="btn-bid" style="font-size: 1.2rem; padding: 1.2rem;">Dar Lance Agora (+ R$ 50)</button>
-            </div>
-        </div>
-    </main>
-
-    <main id="secao-vender" class="container" style="display:none;">
-        <div class="form-card">
-            <h2>Novo Leilão</h2>
-            <form id="form-item">
-                <input type="text" id="nome-item" placeholder="Nome do Produto" required>
-                <input type="number" id="preco-item" placeholder="Preço Inicial (R$)" required>
-                <input type="url" id="img-item" placeholder="URL da Imagem">
-                <button type="submit" class="btn-bid">Publicar</button>
-            </form>
-        </div>
-    </main>
-
-    <div id="modal-login" class="modal">
-        <div class="modal-content">
-            <h3>Identifique-se</h3>
-            <p>Insira seu nome para poder participar dos leilões.</p>
-            <input type="text" id="login-name" placeholder="Seu Nome Completo">
-            <button class="btn-bid" onclick="salvarLogin()">Começar a dar lances</button>
-        </div>
-    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
