@@ -1,116 +1,60 @@
 const socket = io();
-let usuarioLogado = localStorage.getItem('usuarioNome');
-let itemSelecionadoId = null;
+let meuNome = localStorage.getItem('usuario');
 
-// Inicialização
-if (usuarioLogado) atualizarInterfaceLogin();
-
-function mostrarSecao(secao) {
-    ['secao-home', 'secao-vender', 'secao-detalhes'].forEach(s => {
-        document.getElementById(s).style.display = (s === `secao-${secao}`) ? 'block' : 'none';
-    });
-}
-
-function abrirModalLogin() {
-    document.getElementById('modal-login').style.display = 'flex';
-}
-
-function salvarLogin() {
-    const nome = document.getElementById('login-name').value;
-    if (nome) {
-        localStorage.setItem('usuarioNome', nome);
-        usuarioLogado = nome;
-        atualizarInterfaceLogin();
-        document.getElementById('modal-login').style.display = 'none';
+function fazerLogin() {
+    const nome = prompt("Qual seu nome para participar?");
+    if(nome) {
+        localStorage.setItem('usuario', nome);
+        location.reload();
     }
 }
 
-function atualizarInterfaceLogin() {
-    document.getElementById('user-display').innerText = `Olá, ${usuarioLogado.split(' ')[0]}!`;
-    document.getElementById('btn-login-trigger').style.display = 'none';
-}
-
-async function verDetalhes(id) {
-    const res = await fetch('/api/leiloes');
-    const itens = await res.json();
-    const item = itens.find(i => i.id == id);
-    
-    if (item) {
-        itemSelecionadoId = id;
-        document.getElementById('detalhe-img').src = item.imagem;
-        document.getElementById('detalhe-nome').innerText = item.nome;
-        document.getElementById('detalhe-preco').innerText = `R$ ${item.lanceAtual.toLocaleString('pt-BR')}`;
-        document.getElementById('btn-lance-detalhe').onclick = () => prepararLance(id);
-        
-        mostrarSecao('detalhes');
-        window.scrollTo(0,0);
-    }
-}
-
-function formatarTempo(segundos) {
-    const mins = Math.floor(segundos / 60);
-    const segs = segundos % 60;
-    return `${mins}:${segs.toString().padStart(2, '0')}`;
+if(meuNome) {
+    document.getElementById('user-display').innerText = `Olá, ${meuNome}`;
+    document.getElementById('btn-login').style.display = 'none';
 }
 
 function renderizarItem(item) {
     const grid = document.getElementById('leiloes-grid');
     grid.insertAdjacentHTML('beforeend', `
-        <div class="card" data-id="${item.id}" onclick="verDetalhes(${item.id})">
-            <div class="timer" id="timer-${item.id}">${formatarTempo(item.tempo)}</div>
+        <div class="card" id="card-${item.id}">
+            <div class="timer" id="timer-${item.id}">--:--</div>
             <img src="${item.imagem}">
             <div class="card-content">
-                <h3 class="card-title">${item.nome}</h3>
-                <span class="price-tag">R$ ${item.lanceAtual.toLocaleString('pt-BR')}</span>
-                <button class="btn-bid">Ver e dar lance</button>
+                <h3>${item.nome}</h3>
+                <span class="price-tag" id="preco-${item.id}">R$ ${item.lanceAtual.toLocaleString('pt-BR')}</span>
+                <p class="licitante">Líder: <strong id="user-${item.id}">${item.ultimoLicitante}</strong></p>
+                <button class="btn-bid" id="btn-${item.id}" onclick="darLance(${item.id}, ${item.lanceAtual})">Dar Lance (+ R$50)</button>
             </div>
         </div>
     `);
 }
 
-async function carregarLeiloes() {
-    const response = await fetch('/api/leiloes');
-    const itens = await response.json();
-    document.getElementById('leiloes-grid').innerHTML = '';
-    itens.forEach(renderizarItem);
-}
-
-async function prepararLance(id) {
-    if (!usuarioLogado) {
-        abrirModalLogin();
-        return;
-    }
-
-    const res = await fetch('/api/leiloes');
-    const itens = await res.json();
-    const item = itens.find(i => i.id == id);
+async function darLance(id, precoAtual) {
+    if(!meuNome) return fazerLogin();
     
     await fetch('/api/lance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, valor: item.lanceAtual + 50, usuario: usuarioLogado })
+        body: JSON.stringify({ id, valor: precoAtual + 50, usuario: meuNome })
     });
 }
 
-// SOCKETS
-socket.on('tick', (dados) => {
-    dados.forEach(d => {
-        const el = document.getElementById(`timer-${d.id}`);
-        if (el) el.innerText = formatarTempo(d.tempo);
-        
-        if (itemSelecionadoId == d.id) {
-            document.getElementById('detalhe-timer').innerText = formatarTempo(d.tempo);
+socket.on('tick', (itens) => {
+    itens.forEach(item => {
+        const t = document.getElementById(`timer-${item.id}`);
+        if(t) {
+            const m = Math.floor(item.tempo / 60);
+            const s = item.tempo % 60;
+            t.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+            if(!item.ativo) document.getElementById(`btn-${item.id}`).innerText = "Encerrado";
         }
     });
 });
 
-socket.on('atualizarLance', (dados) => {
-    const card = document.querySelector(`[data-id="${dados.id}"] .price-tag`);
-    if (card) card.innerText = `R$ ${dados.novoValor.toLocaleString('pt-BR')}`;
-    
-    if (itemSelecionadoId == dados.id) {
-        document.getElementById('detalhe-preco').innerText = `R$ ${dados.novoValor.toLocaleString('pt-BR')}`;
-    }
+socket.on('atualizarLance', (d) => {
+    document.getElementById(`preco-${d.id}`).innerText = `R$ ${d.novoValor.toLocaleString('pt-BR')}`;
+    document.getElementById(`user-${d.id}`).innerText = d.licitante;
 });
 
-carregarLeiloes();
+fetch('/api/leiloes').then(r => r.json()).then(itens => itens.forEach(renderizarItem));
