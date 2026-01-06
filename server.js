@@ -29,21 +29,31 @@ app.get('/api/leiloes', (req, res) => res.json(leiloes));
 app.post('/api/lance', (req, res) => {
     const { id, valor, usuario } = req.body;
     const item = leiloes.find(l => l.id === id);
-
     if (item && item.ativo && valor > item.lanceAtual) {
         item.lanceAtual = valor;
         item.ultimoLicitante = usuario || "Anônimo";
         if(item.tempo < 30) item.tempo += 30;
-        
-        io.emit('atualizarLance', { 
-            id: item.id, 
-            novoValor: item.lanceAtual, 
-            licitante: item.ultimoLicitante 
-        });
+        io.emit('atualizarLance', { id: item.id, novoValor: item.lanceAtual, licitante: item.ultimoLicitante });
         return res.json({ success: true });
     }
     res.status(400).json({ success: false });
 });
 
+app.post('/api/novo-item', (req, res) => {
+    const { nome, precoInicial, imagem } = req.body;
+    const novo = {
+        id: Date.now(),
+        nome,
+        lanceAtual: parseFloat(precoInicial),
+        ultimoLicitante: "Nenhum",
+        imagem: imagem || `https://picsum.photos/300/200?random=${Math.random()}`,
+        tempo: 600,
+        ativo: true
+    };
+    leiloes.push(novo);
+    io.emit('novoItem', novo);
+    res.json({ success: true });
+});
+
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
+server.listen(PORT, () => console.log(`Servidor rodando!`));
