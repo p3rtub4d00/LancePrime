@@ -28,13 +28,12 @@ let leiloes = [
 ];
 
 io.on('connection', (socket) => {
-    // Ao conectar, envia a lista completa
     socket.emit('update_lista', leiloes);
 
     // 1. CRIAR NOVO LEILÃO
     socket.on('criar_leilao', (dados) => {
         const novoLeilao = {
-            id: Date.now(), // Gera ID único baseado no tempo
+            id: Date.now(),
             dono: dados.usuario,
             item: dados.titulo,
             descricao: dados.descricao,
@@ -44,8 +43,10 @@ io.on('connection', (socket) => {
             foto: dados.foto || "https://placehold.co/600x400?text=Sem+Imagem",
             lances: []
         };
-        leiloes.unshift(novoLeilao); // Adiciona no topo da lista
-        io.emit('update_lista', leiloes); // Atualiza para todo mundo
+        leiloes.unshift(novoLeilao);
+        io.emit('update_lista', leiloes);
+        // NOTIFICAR TODOS
+        io.emit('notificacao', { tipo: 'info', msg: `📢 Novo leilão: ${dados.titulo}` });
     });
 
     // 2. DAR LANCE
@@ -64,9 +65,12 @@ io.on('connection', (socket) => {
                 // Regra dos 2 minutos
                 if (leilao.termino - agora < 120000) {
                     leilao.termino = agora + 120000;
+                    io.emit('notificacao', { tipo: 'warning', msg: `🔥 Reta final! O tempo do ${leilao.item} foi estendido!` });
                 }
 
                 io.emit('update_lista', leiloes);
+                // NOTIFICAR O LANCE
+                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} deu lance de R$ ${valor.toLocaleString()} no ${leilao.item}!` });
             }
         }
     });
