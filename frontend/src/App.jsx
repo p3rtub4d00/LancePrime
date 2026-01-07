@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ChevronRight, ShieldCheck, Award } from 'lucide-react';
+// NOVAS IMPORTAÇÕES DE NOTIFICAÇÃO
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // MANTENHA A URL DO SEU BACKEND AQUI
 const socket = io('https://duckhuntbet.onrender.com');
@@ -11,12 +14,23 @@ function App() {
   const [usuario] = useState("User_" + Math.floor(Math.random() * 1000));
   const [agora, setAgora] = useState(Date.now());
 
-  // Estado do Formulário
   const [novoItem, setNovoItem] = useState({ titulo: '', descricao: '', valorInicial: '', incremento: '', minutos: 10, foto: '' });
 
   useEffect(() => {
     socket.on('update_lista', (data) => setLeiloes(data));
-    return () => socket.off('update_lista');
+    
+    // --- LÓGICA DE NOTIFICAÇÃO NOVA ---
+    socket.on('notificacao', (data) => {
+      // Exibe o toast baseado no tipo (sucesso, aviso, info)
+      if (data.tipo === 'success') toast.success(data.msg);
+      else if (data.tipo === 'warning') toast.warn(data.msg);
+      else toast.info(data.msg);
+    });
+
+    return () => {
+      socket.off('update_lista');
+      socket.off('notificacao');
+    };
   }, []);
 
   useEffect(() => {
@@ -55,6 +69,9 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 font-sans text-gray-900">
       
+      {/* COMPONENTE DE NOTIFICAÇÃO (INVISÍVEL ATÉ ATIVAR) */}
+      <ToastContainer position="top-right" autoClose={3000} theme="colored" />
+
       {/* Header Profissional */}
       <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
