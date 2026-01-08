@@ -52,7 +52,6 @@ function App() {
     localStorage.setItem('lanceprime_user', JSON.stringify(loginForm));
     setShowLoginModal(false);
     
-    // SE FOR ADMIN, JA AVISA
     if (loginForm.nome.toLowerCase() === 'admin') {
         toast.info("👑 Modo Administrador Ativado!");
         setPagina('admin');
@@ -103,13 +102,11 @@ function App() {
     }
   };
 
-  // --- AÇÃO DO ADMIN ---
   const adminAprovar = (id) => {
       socket.emit('admin_aprovar_pagamento', id);
       toast.success("Pagamento Aprovado!");
   };
 
-  // --- AÇÃO DO VENDEDOR ---
   const vendedorConfirmar = (id) => {
       socket.emit('vendedor_confirmar_venda', id);
       toast.success("Venda marcada como concluída!");
@@ -128,7 +125,7 @@ function App() {
 
   const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // --- BOTÃO DO VENCEDOR (Fluxo: Pagar -> Analise -> Zap) ---
+  // --- BOTÃO DO VENCEDOR ---
   const BotaoAcaoVencedor = ({ leilao }) => {
     if (!user) return null;
     const status = leilao.statusPagamento || 'pendente';
@@ -181,7 +178,7 @@ function App() {
         </div>
       )}
 
-      {/* MODAIS DE PAGAMENTO (MANTIDOS IGUAIS AO ANTERIOR) */}
+      {/* MODAL PAGAMENTO DESTAQUE */}
       {modalPagamento && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md">
             <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center relative shadow-2xl">
@@ -196,6 +193,7 @@ function App() {
         </div>
       )}
 
+      {/* MODAL PAGAMENTO VENCEDOR */}
       {modalPagamentoVencedor && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl">
@@ -236,7 +234,7 @@ function App() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
         
-        {/* --- HOME (VITRINE) --- */}
+        {/* --- HOME --- */}
         {pagina === 'home' && (
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Award className="text-blue-600"/> Leilões Ativos</h2>
@@ -276,93 +274,136 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL DO ADMIN (NOVO!) --- */}
+        {/* --- PAINEL DO ADMIN --- */}
         {pagina === 'admin' && user && user.nome.toLowerCase() === 'admin' && (
              <div className="max-w-4xl mx-auto space-y-8">
                  <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-red-100">
                     <h2 className="text-2xl font-bold mb-8 text-red-800 border-b pb-4 flex items-center gap-2"><Lock size={24}/> Área Administrativa</h2>
-                    
-                    <h3 className="font-bold text-gray-700 mb-4">Pagamentos Pendentes de Aprovação</h3>
+                    <h3 className="font-bold text-gray-700 mb-4">Pagamentos Pendentes</h3>
                     <div className="space-y-4">
                         {leiloes.filter(l => l.statusPagamento === 'analise').length === 0 ? <p className="text-gray-400">Nenhum pagamento em análise.</p> : 
                          leiloes.filter(l => l.statusPagamento === 'analise').map(l => (
                             <div key={l.id} className="bg-red-50 border border-red-200 p-5 rounded-2xl flex justify-between items-center">
-                                <div>
-                                    <h4 className="font-bold text-red-900">{l.item}</h4>
-                                    <p className="text-sm text-red-700">Comprador: {l.lances[0].usuario} | Valor: {formatarMoeda(l.valorAtual)}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Status: Aguardando Admin</p>
-                                </div>
+                                <div><h4 className="font-bold text-red-900">{l.item}</h4><p className="text-sm text-red-700">Comprador: {l.lances[0].usuario} | Valor: {formatarMoeda(l.valorAtual)}</p><p className="text-xs text-gray-500 mt-1">Status: Aguardando Admin</p></div>
                                 <button onClick={() => adminAprovar(l.id)} className="bg-green-600 text-white font-bold px-6 py-2 rounded-xl shadow hover:bg-green-700">APROVAR PAGAMENTO</button>
                             </div>
                          ))
                         }
                     </div>
-
-                    <h3 className="font-bold text-gray-700 mt-8 mb-4">Todos os Leilões</h3>
-                    <div className="text-xs text-gray-500">Total de itens: {leiloes.length}</div>
                  </div>
              </div>
         )}
 
-        {/* --- CRIAR LEILÃO (MANTIDO) --- */}
+        {/* --- CRIAR LEILÃO (DESIGN PREMIUM RESTAURADO!) --- */}
         {pagina === 'criar' && (
           <div className="max-w-2xl mx-auto">
-             {!verificarAcaoRestrita() ? <div className="text-center py-20 bg-white rounded-3xl"><p>Aguardando...</p></div> : 
-                 <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-gray-100">
-                    <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-6"><div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg"><PlusCircle size={28} /></div><div><h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2></div></div>
-                    <form onSubmit={tentarCriarLeilao} className="space-y-6">
-                        <input required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Título" />
-                        <textarea required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descrição" />
-                        <div className="grid grid-cols-2 gap-4"><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.valorInicial} onChange={e => setNovoItem({...novoItem, valorInicial: e.target.value})} placeholder="Valor" /><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.incremento} onChange={e => setNovoItem({...novoItem, incremento: e.target.value})} placeholder="Incremento" /></div>
-                        <input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Tempo (min)" />
-                        <input required type="url" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="Foto URL" />
-                        <input required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.localizacao} onChange={e => setNovoItem({...novoItem, localizacao: e.target.value})} placeholder="Cidade" />
-                        <button type="submit" className="w-full bg-green-600 text-white font-bold py-5 rounded-xl">PUBLICAR</button>
-                    </form>
-                 </div>
-             }
+             {!verificarAcaoRestrita() ? (
+                <div className="text-center py-20 bg-white rounded-3xl"><p>Aguardando login...</p></div>
+             ) : (
+                 <>
+                    {/* AVISO DE COMISSÃO RESTAURADO */}
+                    <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-gray-100">
+                        <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-6">
+                            <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200"><PlusCircle size={28} /></div>
+                            <div><h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2><p className="text-gray-500 text-sm">Venda seus itens para milhares de usuários.</p></div>
+                        </div>
+
+                        {/* BLOCO DE POLÍTICA DE VENDA */}
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-8 flex gap-3 items-start">
+                            <Info className="text-blue-500 mt-0.5 shrink-0" size={20}/>
+                            <div>
+                                <h4 className="font-bold text-blue-900 text-sm">Política de Venda</h4>
+                                <p className="text-xs text-blue-700 mt-1">
+                                    A publicação é gratuita. Cobramos uma <b>taxa administrativa de 5%</b> sobre o valor final do arremate apenas se o produto for vendido.
+                                </p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={tentarCriarLeilao} className="space-y-6">
+                            {/* GRUPO: DETALHES */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Sobre o Produto</label>
+                                <div className="relative group"><Tag className="absolute left-4 top-4 text-gray-400" size={20}/><input required className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Título do Anúncio" /></div>
+                                <div className="relative group"><AlignLeft className="absolute left-4 top-4 text-gray-400" size={20}/><textarea required className="w-full pl-12 p-4 h-32 bg-gray-50 border border-gray-200 rounded-xl resize-none" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descreva os detalhes..." /></div>
+                                <div className="relative group"><ImageIcon className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="url" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="URL da Imagem" /></div>
+                            </div>
+
+                            {/* GRUPO: VALORES */}
+                            <div className="pt-4 space-y-4">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Regras e Valores</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="relative group"><DollarSign className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={novoItem.valorInicial} onChange={e => setNovoItem({...novoItem, valorInicial: e.target.value})} placeholder="Valor Inicial" /></div>
+                                    <div className="relative group"><PlusCircle className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl font-bold" value={novoItem.incremento} onChange={e => setNovoItem({...novoItem, incremento: e.target.value})} placeholder="Incremento" /></div>
+                                </div>
+                                <div className="relative group"><Timer className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Duração (minutos)" /></div>
+                            </div>
+
+                            {/* GRUPO: ENTREGA */}
+                            <div className="pt-4 space-y-4">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Logística</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="relative group"><MapPin className="absolute left-4 top-4 text-gray-400" size={20}/><input required className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.localizacao} onChange={e => setNovoItem({...novoItem, localizacao: e.target.value})} placeholder="Cidade/UF" /></div>
+                                    <div className="relative group"><Truck className="absolute left-4 top-4 text-gray-400" size={20}/><select className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-600" value={novoItem.frete} onChange={e => setNovoItem({...novoItem, frete: e.target.value})}><option value="retirada">Somente Retirada</option><option value="correios">Envio Correios</option><option value="ambos">Retirada ou Envio</option></select></div>
+                                </div>
+                            </div>
+
+                            {/* DESTAQUE CARD */}
+                            <div onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})} className={`mt-6 p-6 rounded-2xl cursor-pointer transition-all border-2 flex items-center gap-5 relative overflow-hidden ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${novoItem.destaque ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}><Star size={24} fill={novoItem.destaque ? "currentColor" : "none"}/></div>
+                                <div><h4 className={`font-bold text-lg ${novoItem.destaque ? 'text-amber-900' : 'text-gray-700'}`}>Destaque Premium</h4><p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo da lista.</p></div>
+                                {novoItem.destaque && <div className="absolute top-4 right-4 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded">R$ 19,90</div>}
+                            </div>
+
+                            <button type="submit" className={`w-full font-bold py-5 rounded-xl text-lg shadow-xl mt-4 ${novoItem.destaque ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}>
+                                {novoItem.destaque ? 'PAGAR E PUBLICAR' : 'PUBLICAR ANÚNCIO'}
+                            </button>
+                        </form>
+                    </div>
+                 </>
+             )}
           </div>
         )}
 
-        {/* --- PAINEL DO VENDEDOR (COM BOTÃO DE CONFIRMAR) --- */}
+        {/* --- PAINEL VENDEDOR (COM BOTÃO DE CONFIRMAR) --- */}
         {pagina === 'perfil' && user && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
                <h2 className="text-2xl font-bold mb-8 text-gray-800 border-b pb-4">Financeiro</h2>
                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><DollarSign size={20} className="text-blue-500"/> Minhas Vendas</h3>
                <div className="grid gap-4 mb-10">
-                   {leiloes.filter(l => l.dono === user.nome).map(l => {
-                        const comissao = l.valorAtual * TAXA_COMISSAO;
-                        const liquido = l.valorAtual - comissao;
-                        const encerrado = formatarTempo(l.termino) === "ENCERRADO";
-
-                       return (
-                           <div key={l.id} className="bg-white border border-gray-100 p-5 rounded-2xl">
-                               <div className="flex justify-between items-start mb-4">
-                                   <div><div className="font-bold text-gray-900 text-lg">{l.item}</div><div className="text-sm text-gray-500 mt-1">Status Pagamento: <b className="uppercase text-blue-600">{l.statusPagamento || 'Pendente'}</b></div></div>
-                                   <div className="text-right"><div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div></div>
-                               </div>
-                               {l.lances.length > 0 && (
-                                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                       <div className="flex justify-between items-center">
-                                           <span className="text-sm text-gray-500">Comprador: <b>{l.lances[0].usuario}</b></span>
-                                           {/* BOTÃO NOVO: NOTIFICAR ADMIN */}
-                                           {encerrado && l.statusPagamento !== 'concluido' && (
-                                               <button onClick={() => vendedorConfirmar(l.id)} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
-                                                   <CheckCircle size={14}/> INFORMAR VENDA AO ADMIN
-                                               </button>
-                                           )}
-                                           {l.statusPagamento === 'concluido' && <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle size={14}/> VENDA FINALIZADA</span>}
-                                       </div>
-                                   </div>
-                               )}
+                   {leiloes.filter(l => l.dono === user.nome).length === 0 ? <p className="text-gray-400 text-center py-4">Sem vendas.</p> :
+                    leiloes.filter(l => l.dono === user.nome).map(l => (
+                       <div key={l.id} className="bg-white border border-gray-100 p-5 rounded-2xl">
+                           <div className="flex justify-between items-start mb-4">
+                               <div><div className="font-bold text-gray-900 text-lg">{l.item}</div><div className="text-sm text-gray-500 mt-1">Status Pagamento: <b className="uppercase text-blue-600">{l.statusPagamento || 'Pendente'}</b></div></div>
+                               <div className="text-right"><div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div></div>
                            </div>
-                       );
-                    })
+                           
+                           {/* INFO FINANCEIRA VISÍVEL */}
+                           {l.lances.length > 0 && (
+                               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 flex gap-6">
+                                    <div><span className="block text-gray-400 text-xs uppercase">Comissão (5%)</span><span className="font-bold text-red-500">- {formatarMoeda(l.valorAtual * TAXA_COMISSAO)}</span></div>
+                                    <div className="w-px bg-gray-200"></div>
+                                    <div><span className="block text-gray-400 text-xs uppercase">A Receber</span><span className="font-bold text-green-600">{formatarMoeda(l.valorAtual * 0.95)}</span></div>
+                               </div>
+                           )}
+
+                           {l.lances.length > 0 && (
+                               <div className="flex justify-between items-center mt-2 border-t pt-4">
+                                   <span className="text-sm text-gray-500">Comprador: <b>{l.lances[0].usuario}</b></span>
+                                   {formatarTempo(l.termino) === "ENCERRADO" && l.statusPagamento !== 'concluido' && (
+                                       <button onClick={() => vendedorConfirmar(l.id)} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
+                                           <CheckCircle size={14}/> INFORMAR VENDA AO ADMIN
+                                       </button>
+                                   )}
+                                   {l.statusPagamento === 'concluido' && <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle size={14}/> VENDA FINALIZADA</span>}
+                               </div>
+                           )}
+                       </div>
+                    ))
                    }
                </div>
 
-               {/* MEUS LANCES (Mantido igual) */}
                <h3 className="font-bold text-gray-700 mb-4">Minhas Apostas</h3>
                <div className="grid gap-4">
                    {leiloes.filter(l => l.lances.some(lance => lance.usuario === user.nome)).map(l => (
@@ -384,7 +425,6 @@ function App() {
           <NavBtn icon={Home} label="Início" active={pagina==='home'} onClick={()=>setPagina('home')}/>
           <div className="relative -top-8"><button onClick={()=> user ? setPagina('criar') : setShowLoginModal(true)} className="bg-blue-600 text-white p-4 rounded-full shadow-xl shadow-blue-300 hover:scale-110 transition-transform"><PlusCircle size={32}/></button></div>
           <NavBtn icon={LayoutDashboard} label="Painel" active={pagina==='perfil'} onClick={()=> user ? setPagina('perfil') : setShowLoginModal(true)}/>
-          {/* ÍCONE DE ADMIN SÓ APARECE SE FOR O ADMIN */}
           {user && user.nome.toLowerCase() === 'admin' && <NavBtn icon={Lock} label="Admin" active={pagina==='admin'} onClick={()=>setPagina('admin')}/>}
       </nav>
     </div>
