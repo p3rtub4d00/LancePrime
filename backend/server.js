@@ -26,6 +26,7 @@ let leiloes = [
         foto: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800",
         destaque: true,
         statusPagamento: 'pendente', // pendente, analise, aprovado, concluido
+        dadosComprovante: null, // Novo campo para guardar o recibo
         lances: []
     }
 ];
@@ -48,6 +49,7 @@ io.on('connection', (socket) => {
             foto: dados.foto || "https://placehold.co/600x400?text=Sem+Imagem",
             destaque: dados.destaque || false,
             statusPagamento: 'pendente',
+            dadosComprovante: null,
             lances: []
         };
         
@@ -79,19 +81,18 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ATUALIZADO: Recebe o comprovante completo
     socket.on('enviar_comprovante', (dados) => {
-        const { idLeilao } = dados;
+        const { idLeilao, comprovante } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'analise';
+            leilao.dadosComprovante = comprovante; // Salva o objeto do comprovante
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `📄 Novo comprovante para aprovação: ${leilao.item}` });
+            io.emit('notificacao', { tipo: 'info', msg: `📄 Comprovante #${comprovante.id} enviado para análise!` });
         }
     });
 
-    // --- FUNÇÕES NOVAS DE ADMIN E VENDEDOR ---
-
-    // 1. Admin aprova o pagamento
     socket.on('admin_aprovar_pagamento', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
@@ -101,11 +102,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 2. Vendedor informa venda concluída/encerrada
     socket.on('vendedor_confirmar_venda', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
-            leilao.statusPagamento = 'concluido'; // Status final
+            leilao.statusPagamento = 'concluido';
             io.emit('update_lista', leiloes);
             io.emit('notificacao', { tipo: 'success', msg: `🤝 Venda concluída: ${leilao.item}` });
         }
