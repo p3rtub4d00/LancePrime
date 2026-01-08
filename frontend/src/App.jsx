@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock } from 'lucide-react';
+import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock, FileCheck } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -94,11 +94,25 @@ function App() {
     toast.success("Anúncio publicado!");
   };
 
+  // --- ATUALIZADO: GERAÇÃO DE COMPROVANTE ---
   const confirmarPagamentoVencedor = () => {
     if (modalPagamentoVencedor) {
-        socket.emit('enviar_comprovante', { idLeilao: modalPagamentoVencedor.id });
+        // Gera os dados do comprovante
+        const comprovanteGerado = {
+            id: 'PIX-' + Math.floor(Math.random() * 1000000000),
+            data: new Date().toLocaleString(),
+            valor: modalPagamentoVencedor.valorAtual,
+            pagador: user.nome,
+            cpf: user.cpf // Se tiver no cadastro
+        };
+
+        socket.emit('enviar_comprovante', { 
+            idLeilao: modalPagamentoVencedor.id,
+            comprovante: comprovanteGerado
+        });
+        
         setModalPagamentoVencedor(null);
-        toast.success("Comprovante enviado! Aguarde aprovação.");
+        toast.success(`Comprovante #${comprovanteGerado.id} gerado e enviado!`);
     }
   };
 
@@ -139,9 +153,14 @@ function App() {
     }
     if (status === 'analise') {
         return (
-            <button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 mt-2 flex items-center justify-center gap-2 cursor-wait">
-                <Hourglass size={20}/> PAGAMENTO EM ANÁLISE
-            </button>
+            <div className="w-full mt-2">
+                <button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 flex items-center justify-center gap-2 cursor-wait">
+                    <Hourglass size={20}/> PAGAMENTO EM ANÁLISE
+                </button>
+                <div className="text-center text-[10px] text-gray-400 mt-1">
+                    ID: {leilao.dadosComprovante?.id}
+                </div>
+            </div>
         );
     }
     if (status === 'aprovado' || status === 'concluido') {
@@ -193,7 +212,7 @@ function App() {
         </div>
       )}
 
-      {/* MODAL PAGAMENTO VENCEDOR */}
+      {/* MODAL PAGAMENTO VENCEDOR (COM ENVIO DO COMPROVANTE) */}
       {modalPagamentoVencedor && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl">
@@ -203,7 +222,10 @@ function App() {
                 <div className="bg-gray-900 p-4 rounded-2xl mb-4 inline-block"><QrCode size={160} className="text-white"/></div>
                 <div className="space-y-3">
                     <button onClick={() => navigator.clipboard.writeText("PIX-TESTE")} className="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 text-sm">Copiar Pix</button>
-                    <button onClick={confirmarPagamentoVencedor} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200">JÁ FIZ O PIX / ENVIAR COMPROVANTE</button>
+                    {/* Botão que agora gera e envia o comprovante */}
+                    <button onClick={confirmarPagamentoVencedor} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200">
+                        JÁ FIZ O PIX / ENVIAR COMPROVANTE
+                    </button>
                 </div>
             </div>
         </div>
@@ -274,7 +296,7 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL DO ADMIN --- */}
+        {/* --- PAINEL DO ADMIN (MOSTRANDO COMPROVANTE) --- */}
         {pagina === 'admin' && user && user.nome.toLowerCase() === 'admin' && (
              <div className="max-w-4xl mx-auto space-y-8">
                  <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-red-100">
@@ -283,9 +305,33 @@ function App() {
                     <div className="space-y-4">
                         {leiloes.filter(l => l.statusPagamento === 'analise').length === 0 ? <p className="text-gray-400">Nenhum pagamento em análise.</p> : 
                          leiloes.filter(l => l.statusPagamento === 'analise').map(l => (
-                            <div key={l.id} className="bg-red-50 border border-red-200 p-5 rounded-2xl flex justify-between items-center">
-                                <div><h4 className="font-bold text-red-900">{l.item}</h4><p className="text-sm text-red-700">Comprador: {l.lances[0].usuario} | Valor: {formatarMoeda(l.valorAtual)}</p><p className="text-xs text-gray-500 mt-1">Status: Aguardando Admin</p></div>
-                                <button onClick={() => adminAprovar(l.id)} className="bg-green-600 text-white font-bold px-6 py-2 rounded-xl shadow hover:bg-green-700">APROVAR PAGAMENTO</button>
+                            <div key={l.id} className="bg-red-50 border border-red-200 p-5 rounded-2xl">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h4 className="font-bold text-red-900 text-lg">{l.item}</h4>
+                                        <p className="text-sm text-red-700">Comprador: <b>{l.lances[0].usuario}</b></p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-bold text-xl text-red-900">{formatarMoeda(l.valorAtual)}</div>
+                                        <div className="text-xs text-red-400">Status: Aguardando Admin</div>
+                                    </div>
+                                </div>
+                                
+                                {/* EXIBIÇÃO DO COMPROVANTE GERADO */}
+                                {l.dadosComprovante && (
+                                    <div className="bg-white p-4 rounded-xl border border-red-100 mb-4 shadow-sm text-sm text-gray-600">
+                                        <div className="flex items-center gap-2 font-bold text-gray-800 mb-2 border-b pb-2">
+                                            <FileCheck size={16} /> Comprovante Recebido
+                                        </div>
+                                        <p><b>ID Transação:</b> {l.dadosComprovante.id}</p>
+                                        <p><b>Data:</b> {l.dadosComprovante.data}</p>
+                                        <p><b>Pagador:</b> {l.dadosComprovante.pagador}</p>
+                                    </div>
+                                )}
+
+                                <button onClick={() => adminAprovar(l.id)} className="w-full bg-green-600 text-white font-bold px-6 py-3 rounded-xl shadow hover:bg-green-700 flex items-center justify-center gap-2">
+                                    <CheckCircle size={20}/> APROVAR PAGAMENTO
+                                </button>
                             </div>
                          ))
                         }
@@ -294,21 +340,20 @@ function App() {
              </div>
         )}
 
-        {/* --- CRIAR LEILÃO (DESIGN PREMIUM RESTAURADO!) --- */}
+        {/* --- CRIAR LEILÃO (PREMIUM RESTAURADO) --- */}
         {pagina === 'criar' && (
           <div className="max-w-2xl mx-auto">
              {!verificarAcaoRestrita() ? (
                 <div className="text-center py-20 bg-white rounded-3xl"><p>Aguardando login...</p></div>
              ) : (
                  <>
-                    {/* AVISO DE COMISSÃO RESTAURADO */}
                     <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-gray-100">
                         <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-6">
                             <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200"><PlusCircle size={28} /></div>
                             <div><h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2><p className="text-gray-500 text-sm">Venda seus itens para milhares de usuários.</p></div>
                         </div>
 
-                        {/* BLOCO DE POLÍTICA DE VENDA */}
+                        {/* AVISO DE COMISSÃO */}
                         <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-8 flex gap-3 items-start">
                             <Info className="text-blue-500 mt-0.5 shrink-0" size={20}/>
                             <div>
@@ -320,15 +365,12 @@ function App() {
                         </div>
 
                         <form onSubmit={tentarCriarLeilao} className="space-y-6">
-                            {/* GRUPO: DETALHES */}
                             <div className="space-y-4">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Sobre o Produto</label>
                                 <div className="relative group"><Tag className="absolute left-4 top-4 text-gray-400" size={20}/><input required className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Título do Anúncio" /></div>
                                 <div className="relative group"><AlignLeft className="absolute left-4 top-4 text-gray-400" size={20}/><textarea required className="w-full pl-12 p-4 h-32 bg-gray-50 border border-gray-200 rounded-xl resize-none" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descreva os detalhes..." /></div>
                                 <div className="relative group"><ImageIcon className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="url" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="URL da Imagem" /></div>
                             </div>
-
-                            {/* GRUPO: VALORES */}
                             <div className="pt-4 space-y-4">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Regras e Valores</label>
                                 <div className="grid grid-cols-2 gap-4">
@@ -337,8 +379,6 @@ function App() {
                                 </div>
                                 <div className="relative group"><Timer className="absolute left-4 top-4 text-gray-400" size={20}/><input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl" value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Duração (minutos)" /></div>
                             </div>
-
-                            {/* GRUPO: ENTREGA */}
                             <div className="pt-4 space-y-4">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Logística</label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,17 +386,12 @@ function App() {
                                     <div className="relative group"><Truck className="absolute left-4 top-4 text-gray-400" size={20}/><select className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-600" value={novoItem.frete} onChange={e => setNovoItem({...novoItem, frete: e.target.value})}><option value="retirada">Somente Retirada</option><option value="correios">Envio Correios</option><option value="ambos">Retirada ou Envio</option></select></div>
                                 </div>
                             </div>
-
-                            {/* DESTAQUE CARD */}
                             <div onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})} className={`mt-6 p-6 rounded-2xl cursor-pointer transition-all border-2 flex items-center gap-5 relative overflow-hidden ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${novoItem.destaque ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}><Star size={24} fill={novoItem.destaque ? "currentColor" : "none"}/></div>
                                 <div><h4 className={`font-bold text-lg ${novoItem.destaque ? 'text-amber-900' : 'text-gray-700'}`}>Destaque Premium</h4><p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo da lista.</p></div>
                                 {novoItem.destaque && <div className="absolute top-4 right-4 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded">R$ 19,90</div>}
                             </div>
-
-                            <button type="submit" className={`w-full font-bold py-5 rounded-xl text-lg shadow-xl mt-4 ${novoItem.destaque ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}>
-                                {novoItem.destaque ? 'PAGAR E PUBLICAR' : 'PUBLICAR ANÚNCIO'}
-                            </button>
+                            <button type="submit" className={`w-full font-bold py-5 rounded-xl text-lg shadow-xl mt-4 ${novoItem.destaque ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}>{novoItem.destaque ? 'PAGAR E PUBLICAR' : 'PUBLICAR ANÚNCIO'}</button>
                         </form>
                     </div>
                  </>
@@ -364,7 +399,7 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL VENDEDOR (COM BOTÃO DE CONFIRMAR) --- */}
+        {/* --- PAINEL VENDEDOR (COM COMPROVANTE) --- */}
         {pagina === 'perfil' && user && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
@@ -379,13 +414,21 @@ function App() {
                                <div className="text-right"><div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div></div>
                            </div>
                            
-                           {/* INFO FINANCEIRA VISÍVEL */}
+                           {/* INFO FINANCEIRA */}
                            {l.lances.length > 0 && (
                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 flex gap-6">
                                     <div><span className="block text-gray-400 text-xs uppercase">Comissão (5%)</span><span className="font-bold text-red-500">- {formatarMoeda(l.valorAtual * TAXA_COMISSAO)}</span></div>
                                     <div className="w-px bg-gray-200"></div>
                                     <div><span className="block text-gray-400 text-xs uppercase">A Receber</span><span className="font-bold text-green-600">{formatarMoeda(l.valorAtual * 0.95)}</span></div>
                                </div>
+                           )}
+
+                           {/* INFO COMPROVANTE PARA O VENDEDOR CONFERIR */}
+                           {l.dadosComprovante && (
+                                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-800 mb-4">
+                                    <p className="font-bold mb-1 flex items-center gap-1"><FileCheck size={12}/> Comprovante Recebido na Plataforma</p>
+                                    <p>ID: {l.dadosComprovante.id} - Valor: {formatarMoeda(l.dadosComprovante.valor)}</p>
+                                </div>
                            )}
 
                            {l.lances.length > 0 && (
