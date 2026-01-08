@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt, AlertTriangle, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt, AlertTriangle, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // CONEXÃO COM O BACKEND
 const socket = io('https://duckhuntbet.onrender.com');
 
-// FORMATADORES
+// FORMATAÇÃO DE TEMPO
 const formatarTempo = (termino, agora) => {
     const diff = termino - agora;
     if (diff <= 0) return "ENCERRADO";
@@ -18,18 +18,21 @@ const formatarTempo = (termino, agora) => {
     if (d > 0) return `${d}d ${h}h ${m}m`;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
+
 const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// COMPONENTE CARD DE LEILÃO (HOME)
+// COMPONENTE CARD DE LEILÃO
 const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onConfirmarEntrega, onReportarProblema }) => {
     const [valorManual, setValorManual] = useState('');
     const status = formatarTempo(leilao.termino, agora);
     const encerrado = status === "ENCERRADO";
     const euGanhei = encerrado && user && leilao.lances.length > 0 && leilao.lances[0].usuario === user.nome;
     
-    // Sugestão inicial
+    // Mínimo é 1 real acima do atual
+    const minimoNecessario = leilao.valorAtual + 1;
+
     useEffect(() => {
-        setValorManual(leilao.valorAtual + 10);
+        setValorManual(minimoNecessario);
     }, [leilao.valorAtual]);
 
     return (
@@ -57,23 +60,18 @@ const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onConfirmarEntrega,
                     <div className="flex gap-2">
                         <div className="relative w-full">
                             <span className="absolute left-3 top-3.5 text-gray-400 text-xs font-bold">R$</span>
-                            <input 
-                                type="number" 
-                                value={valorManual} 
-                                onChange={(e) => setValorManual(e.target.value)}
-                                className="w-full pl-8 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
+                            <input type="number" value={valorManual} onChange={(e) => setValorManual(e.target.value)} className="w-full pl-8 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                         <button onClick={() => onLance(leilao, valorManual)} className={`px-4 py-3 rounded-xl text-white font-bold shadow-lg transition-transform active:scale-[0.95] ${leilao.destaque ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>LANCE</button>
                     </div>
                 )}
-                {!encerrado && <p className="text-[10px] text-gray-400 mt-2 text-center">Lance Mínimo: {formatarMoeda(leilao.valorAtual + 1)}</p>}
+                {!encerrado && <p className="text-[10px] text-gray-400 mt-2 text-center">Lance Mínimo: {formatarMoeda(minimoNecessario)}</p>}
             </div>
         </div>
     );
 };
 
-// BOTÃO VENCEDOR COMPLETO
+// BOTÃO VENCEDOR (Fluxo Completo)
 const BotaoAcaoVencedor = ({ leilao, onPagar, onConfirmarEntrega, onReportarProblema, user }) => {
     if (!user) return null;
     const status = leilao.statusPagamento || 'pendente';
@@ -92,15 +90,15 @@ const BotaoAcaoVencedor = ({ leilao, onPagar, onConfirmarEntrega, onReportarProb
     if (status === 'aprovado') {
         return (
             <div className="w-full mt-2 space-y-2">
-                <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded-lg text-center border border-blue-100">Dinheiro retido na Plataforma. Confirme após receber.</div>
-                <button onClick={() => onConfirmarEntrega(leilao.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2"><ThumbsUp size={20}/> RECEBI E GOSTEI</button>
+                <div className="bg-blue-50 text-blue-800 text-[10px] p-2 rounded-lg text-center border border-blue-100">Dinheiro retido com segurança.</div>
+                <button onClick={() => onConfirmarEntrega(leilao.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm"><ThumbsUp size={16}/> RECEBI E GOSTEI</button>
                 <button onClick={() => onReportarProblema(leilao.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 rounded-xl border border-red-200 flex items-center justify-center gap-2 text-xs"><ThumbsDown size={14}/> TENHO UM PROBLEMA</button>
                 <a href={`https://wa.me/${leilao.whatsapp}?text=Ola, paguei o item ${leilao.item}`} target="_blank" className="block text-center text-blue-500 text-xs hover:underline mt-2">Falar com Vendedor</a>
             </div>
         );
     }
     if (status === 'finalizado') return <div className="w-full bg-green-100 text-green-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-green-200">NEGÓCIO CONCLUÍDO! 🎉</div>;
-    if (status === 'bloqueado') return <div className="w-full bg-red-100 text-red-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-red-200">EM DISPUTA/ANÁLISE 🚨</div>;
+    if (status === 'bloqueado') return <div className="w-full bg-red-100 text-red-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-red-200">EM DISPUTA 🚨</div>;
     return null;
 };
 
@@ -172,7 +170,7 @@ function App() {
 
   const tentarCriarLeilao = (e) => {
     e.preventDefault();
-    if (!novoItem.termosAceitos) return toast.warn("Você deve aceitar os termos de retenção do pagamento.");
+    if (!novoItem.termosAceitos) return toast.warn("Você deve aceitar os termos de retenção.");
     if (novoItem.destaque) setModalPagamento(true);
     else finalizarPublicacao();
   };
@@ -228,6 +226,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
 
+      {/* LOGIN MODAL */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative">
@@ -243,6 +242,7 @@ function App() {
         </div>
       )}
 
+      {/* MODAL PAGAMENTO VENCEDOR */}
       {modalPagamentoVencedor && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl">
@@ -251,7 +251,7 @@ function App() {
                 <p className="text-gray-500 text-sm mb-6">Valor: {formatarMoeda(modalPagamentoVencedor.valorAtual)}</p>
                 {etapaPagamento === 0 && (
                     <div className="space-y-3">
-                        <p className="font-bold text-gray-700 mb-4">Forma de pagamento:</p>
+                        <p className="font-bold text-gray-700 mb-4">Escolha a forma de pagamento:</p>
                         <button onClick={() => {setMetodoSelecionado('PIX'); setEtapaPagamento(1)}} className="w-full bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-800 font-bold py-4 rounded-xl flex items-center justify-center gap-3"><QrCode size={24}/> PIX</button>
                         <button onClick={() => {setMetodoSelecionado('CARTAO'); setEtapaPagamento(1)}} className="w-full bg-gray-50 border border-gray-100 hover:bg-gray-100 text-gray-800 font-bold py-4 rounded-xl flex items-center justify-center gap-3"><CreditCard size={24}/> CARTÃO</button>
                     </div>
@@ -293,10 +293,9 @@ function App() {
              <div className="max-w-4xl mx-auto space-y-8">
                  <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-red-100">
                     <h2 className="text-2xl font-bold mb-8 text-red-800 border-b pb-4 flex items-center gap-2"><Lock size={24}/> Área Administrativa</h2>
-                    <h3 className="font-bold text-gray-700 mb-4">Pagamentos Validados (Passo 2/2)</h3>
+                    <h3 className="font-bold text-gray-700 mb-4">Pagamentos Validados</h3>
                     <div className="space-y-4">
-                        {leiloes.filter(l => l.statusPagamento === 'validado').length === 0 ? <p className="text-gray-400">Nenhum pagamento validado para aprovação final.</p> : 
-                         leiloes.filter(l => l.statusPagamento === 'validado').map(l => (
+                        {leiloes.filter(l => l.statusPagamento === 'validado').map(l => (
                             <div key={l.id} className="bg-red-50 border border-red-200 p-5 rounded-2xl">
                                 <div className="flex justify-between items-start mb-4">
                                     <div><h4 className="font-bold text-red-900 text-lg">{l.item}</h4><p className="text-sm text-red-700">Comprador: <b>{l.lances[0].usuario}</b></p></div>
@@ -324,26 +323,28 @@ function App() {
              {!verificarAcaoRestrita() ? <div className="text-center py-20 bg-white rounded-3xl"><p>Aguardando login...</p></div> : 
                  <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-gray-100">
                     <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-6"><div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200"><PlusCircle size={28} /></div><div><h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2></div></div>
-                    {/* AVISO DE COMISSÃO RESTAURADO */}
                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-8 flex gap-3 items-start">
                         <Info className="text-blue-500 mt-0.5 shrink-0" size={20}/>
-                        <div><h4 className="font-bold text-blue-900 text-sm">Política de Venda</h4><p className="text-xs text-blue-700 mt-1">Cobramos uma <b>taxa administrativa de 5%</b> sobre o valor final do arremate.</p></div>
+                        <div><h4 className="font-bold text-blue-900 text-sm">Política de Venda</h4><p className="text-xs text-blue-700 mt-1">Cobramos uma <b>taxa administrativa de 5%</b> sobre o valor final.</p></div>
                     </div>
                     <form onSubmit={tentarCriarLeilao} className="space-y-6">
                         <div className="space-y-4">
-                            <input required className="w-full pl-4 p-4 bg-gray-50 border rounded-xl" value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Título do Anúncio" />
-                            <textarea required className="w-full pl-4 p-4 bg-gray-50 border rounded-xl" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descrição" />
-                            <input required type="url" className="w-full pl-4 p-4 bg-gray-50 border rounded-xl" value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="URL Imagem" />
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Título</label><input required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Ex: iPhone 15" /></div>
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label><textarea required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Detalhes..." /></div>
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Foto URL</label><input required type="url" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="http://..." /></div>
                         </div>
-                        {/* INCREMENTO REMOVIDO DAQUI */}
-                        <div className="grid grid-cols-2 gap-4"><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.valorInicial} onChange={e => setNovoItem({...novoItem, valorInicial: e.target.value})} placeholder="Valor Inicial" /><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Tempo (min)" /></div>
-                        <div className="grid grid-cols-2 gap-4"><input required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.localizacao} onChange={e => setNovoItem({...novoItem, localizacao: e.target.value})} placeholder="Cidade/UF" /><select className="w-full p-4 bg-gray-50 border rounded-xl text-gray-600" value={novoItem.frete} onChange={e => setNovoItem({...novoItem, frete: e.target.value})}><option value="retirada">Somente Retirada</option><option value="correios">Envio Correios</option><option value="ambos">Retirada ou Envio</option></select></div>
-                        {/* CHECKBOX DE RETENÇÃO RESTAURADO */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Valor Inicial</label><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.valorInicial} onChange={e => setNovoItem({...novoItem, valorInicial: e.target.value})} placeholder="R$ 0,00" /></div>
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Tempo (Min)</label><input required type="number" className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="10" /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Cidade/UF</label><input required className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.localizacao} onChange={e => setNovoItem({...novoItem, localizacao: e.target.value})} placeholder="Cidade" /></div>
+                            <div className="block"><label className="block text-sm font-bold text-gray-700 mb-1">Entrega</label><select className="w-full p-4 bg-gray-50 border rounded-xl" value={novoItem.frete} onChange={e => setNovoItem({...novoItem, frete: e.target.value})}><option value="retirada">Somente Retirada</option><option value="correios">Envio Correios</option><option value="ambos">Retirada ou Envio</option></select></div>
+                        </div>
                         <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
                             <input type="checkbox" id="termos" className="w-5 h-5" checked={novoItem.termosAceitos} onChange={e => setNovoItem({...novoItem, termosAceitos: e.target.checked})} />
                             <label htmlFor="termos" className="text-xs text-blue-900 cursor-pointer">Estou ciente que o pagamento ficará retido na plataforma até a entrega confirmada.</label>
                         </div>
-                        {/* DESTAQUE RESTAURADO */}
                         <div onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})} className={`mt-4 p-6 rounded-2xl cursor-pointer border-2 flex items-center gap-5 relative overflow-hidden ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200'}`}>
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${novoItem.destaque ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}><Star size={24} fill={novoItem.destaque ? "currentColor" : "none"}/></div>
                             <div><h4 className={`font-bold text-lg ${novoItem.destaque ? 'text-amber-900' : 'text-gray-700'}`}>Destaque Premium</h4><p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo.</p></div>
@@ -355,7 +356,7 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL VENDEDOR (BADGES RESTAURADAS) --- */}
+        {/* --- PAINEL VENDEDOR (BADGES VOLTARAM) --- */}
         {pagina === 'perfil' && user && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
@@ -369,7 +370,6 @@ function App() {
                                <div><div className="font-bold text-gray-900 text-lg">{l.item}</div><div className="text-sm text-gray-500 mt-1">Status Pagamento: <b className="uppercase text-blue-600">{l.statusPagamento || 'Pendente'}</b></div></div>
                                <div className="text-right"><div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div></div>
                            </div>
-                           {/* INFO FINANCEIRA RESTAURADA */}
                            {l.lances.length > 0 && (
                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 flex gap-6">
                                     <div><span className="block text-gray-400 text-xs uppercase">Comissão (5%)</span><span className="font-bold text-red-500">- {formatarMoeda(l.valorAtual * TAXA_COMISSAO)}</span></div>
@@ -377,7 +377,6 @@ function App() {
                                     <div><span className="block text-gray-400 text-xs uppercase">A Receber</span><span className="font-bold text-green-600">{formatarMoeda(l.valorAtual * 0.95)}</span></div>
                                </div>
                            )}
-                           {/* RECIBO AUTOMÁTICO PARA O VENDEDOR */}
                            {l.statusPagamento === 'analise' && l.dadosRecibo && (
                                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-blue-800 mb-4 shadow-sm font-mono">
                                     <div className="flex items-center gap-2 font-bold mb-2 border-b border-blue-200 pb-2"><Receipt size={16}/> RECIBO AUTOMÁTICO GERADO</div>
@@ -412,7 +411,6 @@ function App() {
                            <div key={l.id} className="border p-5 rounded-2xl flex justify-between items-center">
                                <div><div className="font-bold text-gray-900">{l.item}</div><div className="text-sm">Meu lance: <b>{formatarMoeda(l.lances.find(la => la.usuario === user.nome).valor)}</b></div></div>
                                <div className="text-right">
-                                   {/* BADGES RESTAURADAS AQUI */}
                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${encerrado ? (ganhando ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700") : (ganhando ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700")}`}>
                                        {encerrado ? (ganhando ? "ARREMATADO!" : "PERDIDO") : (ganhando ? "VENCENDO" : "SUPERADO")}
                                    </span>
