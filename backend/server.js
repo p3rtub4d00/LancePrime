@@ -25,8 +25,8 @@ let leiloes = [
         termino: Date.now() + 600000,
         foto: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800",
         destaque: true,
-        statusPagamento: 'pendente', // pendente, analise, aprovado, concluido
-        dadosComprovante: null, // Novo campo para guardar o recibo
+        statusPagamento: 'pendente', // pendente -> analise (vendedor) -> validado (admin) -> aprovado (fim)
+        dadosRecibo: null, // Guarda o recibo gerado
         lances: []
     }
 ];
@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
             foto: dados.foto || "https://placehold.co/600x400?text=Sem+Imagem",
             destaque: dados.destaque || false,
             statusPagamento: 'pendente',
-            dadosComprovante: null,
+            dadosRecibo: null,
             lances: []
         };
         
@@ -81,33 +81,35 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ATUALIZADO: Recebe o comprovante completo
-    socket.on('enviar_comprovante', (dados) => {
-        const { idLeilao, comprovante } = dados;
+    // 1. SISTEMA GERA RECIBO (Enviado pelo comprador) -> VAI PARA VENDEDOR
+    socket.on('gerar_recibo_pagamento', (dados) => {
+        const { idLeilao, recibo } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
-            leilao.statusPagamento = 'analise';
-            leilao.dadosComprovante = comprovante; // Salva o objeto do comprovante
+            leilao.statusPagamento = 'analise'; // Vendedor precisa ver
+            leilao.dadosRecibo = recibo; // Salva o recibo oficial
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `📄 Comprovante #${comprovante.id} enviado para análise!` });
+            io.emit('notificacao', { tipo: 'info', msg: `🧾 Recibo #${recibo.id} gerado! Aguardando Vendedor.` });
         }
     });
 
+    // 2. VENDEDOR CONFIRMA RECIBO -> VAI PARA ADMIN
+    socket.on('vendedor_validar_recibo', (idLeilao) => {
+        const leilao = leiloes.find(l => l.id === idLeilao);
+        if (leilao) {
+            leilao.statusPagamento = 'validado'; // Admin precisa ver
+            io.emit('update_lista', leiloes);
+            io.emit('notificacao', { tipo: 'info', msg: `🛡️ Vendedor validou o recibo. Admin, verifique o pagamento.` });
+        }
+    });
+
+    // 3. ADMIN APROVA PAGAMENTO -> LIBERA TUDO
     socket.on('admin_aprovar_pagamento', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'aprovado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento aprovado para ${leilao.item}!` });
-        }
-    });
-
-    socket.on('vendedor_confirmar_venda', (idLeilao) => {
-        const leilao = leiloes.find(l => l.id === idLeilao);
-        if (leilao) {
-            leilao.statusPagamento = 'concluido';
-            io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'success', msg: `🤝 Venda concluída: ${leilao.item}` });
+            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento CONFIRMADO! Entrega liberada.` });
         }
     });
 });
