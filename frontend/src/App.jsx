@@ -1,11 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt } from 'lucide-react';
+import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt, ChevronRight } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // CONEXÃO COM O BACKEND
 const socket = io('https://duckhuntbet.onrender.com');
+
+// COMPONENTE CARD DE LEILÃO (Extraído para gerenciar o input de lance individual)
+const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onContato }) => {
+    const [valorManual, setValorManual] = useState('');
+    const status = formatarTempo(leilao.termino, agora);
+    const encerrado = status === "ENCERRADO";
+    const euGanhei = encerrado && user && leilao.lances.length > 0 && leilao.lances[0].usuario === user.nome;
+    const minimoNecessario = leilao.valorAtual + leilao.incrementoMinimo;
+
+    // Atualiza o valor sugerido quando o leilão muda
+    useEffect(() => {
+        setValorManual(minimoNecessario);
+    }, [leilao.valorAtual]);
+
+    return (
+        <div className={`bg-white rounded-2xl hover:shadow-xl transition-all duration-300 overflow-hidden group border ${leilao.destaque ? 'border-amber-300 shadow-amber-100 ring-1 ring-amber-100' : 'border-gray-100 shadow-sm'}`}>
+            <div className="relative h-56 overflow-hidden">
+                <img src={leilao.foto} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Item" />
+                {leilao.destaque && <div className="absolute top-3 left-3 bg-amber-400 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full flex gap-1 items-center shadow-lg"><Star size={10} fill="currentColor"/> PREMIUM</div>}
+                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-blue-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex gap-1 items-center"><Clock size={12}/> {status}</div>
+            </div>
+            <div className="p-5">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md"><MapPin size={12}/> {leilao.localizacao || 'Brasil'}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md"><Truck size={12}/> {leilao.frete}</div>
+                </div>
+                <div className={`p-4 rounded-xl mb-4 flex justify-between items-end ${leilao.destaque ? 'bg-amber-50/50 border border-amber-100' : 'bg-gray-50 border border-gray-100'}`}>
+                    <div><p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Lance Atual</p><p className={`text-2xl font-black ${leilao.destaque ? 'text-amber-600' : 'text-blue-900'}`}>{formatarMoeda(leilao.valorAtual)}</p></div>
+                    {leilao.lances.length > 0 && <div className="text-right"><p className="text-[10px] text-gray-400">Último de</p><p className="text-xs font-bold text-gray-700 max-w-[80px] truncate">{leilao.lances[0].usuario}</p></div>}
+                </div>
+                
+                {encerrado ? (
+                    euGanhei ? <BotaoAcaoVencedor leilao={leilao} onPagar={onPagar} user={user} /> : 
+                    <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl cursor-not-allowed text-sm">LEILÃO ENCERRADO</button>
+                ) : (
+                    <div className="flex gap-2">
+                        <div className="relative w-full">
+                            <span className="absolute left-3 top-3.5 text-gray-400 text-xs font-bold">R$</span>
+                            <input 
+                                type="number" 
+                                value={valorManual} 
+                                onChange={(e) => setValorManual(e.target.value)}
+                                className="w-full pl-8 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+                        <button 
+                            onClick={() => onLance(leilao, valorManual)} 
+                            className={`px-6 py-3 rounded-xl text-white font-bold shadow-lg transition-transform active:scale-[0.95] ${leilao.destaque ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        >
+                            LANCE
+                        </button>
+                    </div>
+                )}
+                {!encerrado && <p className="text-[10px] text-gray-400 mt-2 text-center">Mínimo: {formatarMoeda(minimoNecessario)}</p>}
+            </div>
+        </div>
+    );
+};
+
+// AUXILIARES
+const formatarTempo = (termino, agora) => {
+    const diff = termino - agora;
+    if (diff <= 0) return "ENCERRADO";
+    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((diff % (1000 * 60)) / 1000);
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const BotaoAcaoVencedor = ({ leilao, onPagar, user }) => {
+    if (!user) return null;
+    const status = leilao.statusPagamento || 'pendente';
+
+    if (status === 'pendente') {
+        return (
+            <button onClick={() => onPagar(leilao)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-200 mt-2 flex items-center justify-center gap-2 animate-pulse">
+                <CreditCard size={20}/> PAGAR AGORA
+            </button>
+        );
+    }
+    if (status === 'analise' || status === 'validado') {
+        return (
+            <div className="w-full mt-2">
+                <button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 flex items-center justify-center gap-2 cursor-wait">
+                    <Hourglass size={20}/> PROCESSANDO
+                </button>
+                <div className="text-center text-[10px] text-gray-400 mt-1">
+                    {status === 'analise' ? 'Vendedor conferindo...' : 'Admin aprovando...'}
+                </div>
+            </div>
+        );
+    }
+    if (status === 'aprovado') {
+        const msg = `Olá! A plataforma confirmou meu pagamento do *${leilao.item}*. Segue meu recibo. Como fazemos a retirada?`;
+        return (
+            <a href={`https://wa.me/${leilao.whatsapp}?text=${encodeURIComponent(msg)}`} target="_blank" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-center flex items-center justify-center gap-2 mt-2">
+                <MessageCircle size={20}/> COMBINAR ENTREGA
+            </a>
+        );
+    }
+    return null;
+};
 
 function App() {
   const [leiloes, setLeiloes] = useState([]);
@@ -17,6 +122,10 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [modalPagamento, setModalPagamento] = useState(false);
   const [modalPagamentoVencedor, setModalPagamentoVencedor] = useState(null);
+  
+  // ESTADO DO PAGAMENTO (0 = Seleção, 1 = Pagamento)
+  const [etapaPagamento, setEtapaPagamento] = useState(0); 
+  const [metodoSelecionado, setMetodoSelecionado] = useState(null);
 
   // FORMULÁRIOS
   const [loginForm, setLoginForm] = useState({ nome: '', whatsapp: '', cpf: '' });
@@ -44,7 +153,7 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // --- LÓGICA ---
+  // --- LÓGICA DE AÇÕES ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (!loginForm.nome) return toast.error("Preencha o nome!");
@@ -74,10 +183,19 @@ function App() {
     return true;
   };
 
-  const enviarLance = (leilao) => {
+  // DAR LANCE MANUAL
+  const enviarLance = (leilao, valorDigitado) => {
     if (!verificarAcaoRestrita()) return;
-    const valorLance = leilao.valorAtual + leilao.incrementoMinimo;
-    socket.emit('dar_lance', { idLeilao: leilao.id, valor: valorLance, usuario: user.nome, whatsapp: user.whatsapp });
+    
+    const valor = Number(valorDigitado);
+    const minimo = leilao.valorAtual + leilao.incrementoMinimo;
+
+    if (valor < minimo) {
+        toast.error(`O lance mínimo é R$ ${minimo}`);
+        return;
+    }
+
+    socket.emit('dar_lance', { idLeilao: leilao.id, valor: valor, usuario: user.nome, whatsapp: user.whatsapp });
   };
 
   const tentarCriarLeilao = (e) => {
@@ -94,17 +212,27 @@ function App() {
     toast.success("Anúncio publicado!");
   };
 
-  // --- 1. GERAÇÃO DE RECIBO (COMPRADOR) ---
+  // --- LÓGICA DO PAGAMENTO EM ETAPAS ---
+  const abrirModalPagamentoVencedor = (leilao) => {
+      setEtapaPagamento(0); // Reinicia para etapa de escolha
+      setMetodoSelecionado(null);
+      setModalPagamentoVencedor(leilao);
+  };
+
+  const selecionarMetodo = (metodo) => {
+      setMetodoSelecionado(metodo);
+      setEtapaPagamento(1); // Vai para etapa de pagamento
+  };
+
   const confirmarPagamentoVencedor = () => {
-    if (modalPagamentoVencedor) {
-        // GERA O RECIBO AUTOMÁTICO
+    if (modalPagamentoVencedor && metodoSelecionado) {
         const reciboGerado = {
             id: 'REC-' + Math.floor(Math.random() * 1000000000),
             data: new Date().toLocaleString(),
             valor: modalPagamentoVencedor.valorAtual,
             comprador: user.nome,
             vendedor: modalPagamentoVencedor.dono,
-            metodo: 'PIX/CARTÃO PLATAFORMA'
+            metodo: metodoSelecionado
         };
 
         socket.emit('gerar_recibo_pagamento', { 
@@ -117,64 +245,14 @@ function App() {
     }
   };
 
-  // --- 2. VENDEDOR VALIDA RECIBO ---
   const vendedorValidar = (id) => {
       socket.emit('vendedor_validar_recibo', id);
       toast.success("Recibo validado! Enviado para o Admin.");
   };
 
-  // --- 3. ADMIN APROVA PAGAMENTO ---
   const adminAprovar = (id) => {
       socket.emit('admin_aprovar_pagamento', id);
       toast.success("Pagamento Confirmado na Conta!");
-  };
-
-  const formatarTempo = (termino) => {
-    const diff = termino - agora;
-    if (diff <= 0) return "ENCERRADO";
-    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const s = Math.floor((diff % (1000 * 60)) / 1000);
-    if (d > 0) return `${d}d ${h}h ${m}m`;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  // --- BOTÃO DO VENCEDOR ---
-  const BotaoAcaoVencedor = ({ leilao }) => {
-    if (!user) return null;
-    const status = leilao.statusPagamento || 'pendente';
-
-    if (status === 'pendente') {
-        return (
-            <button onClick={() => setModalPagamentoVencedor(leilao)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-200 mt-2 flex items-center justify-center gap-2 animate-pulse">
-                <CreditCard size={20}/> PAGAR AGORA (PIX/CARTÃO)
-            </button>
-        );
-    }
-    if (status === 'analise' || status === 'validado') {
-        return (
-            <div className="w-full mt-2">
-                <button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 flex items-center justify-center gap-2 cursor-wait">
-                    <Hourglass size={20}/> PROCESSANDO PAGAMENTO
-                </button>
-                <div className="text-center text-[10px] text-gray-400 mt-1">
-                    {status === 'analise' ? 'Enviado ao Vendedor...' : 'Aguardando Admin...'}
-                </div>
-            </div>
-        );
-    }
-    if (status === 'aprovado') {
-        const msg = `Olá! A plataforma confirmou meu pagamento do *${leilao.item}*. Segue meu recibo. Como fazemos a retirada?`;
-        return (
-            <a href={`https://wa.me/${leilao.whatsapp}?text=${encodeURIComponent(msg)}`} target="_blank" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-center flex items-center justify-center gap-2 mt-2">
-                <MessageCircle size={20}/> COMBINAR ENTREGA
-            </a>
-        );
-    }
-    return null;
   };
 
   return (
@@ -186,10 +264,7 @@ function App() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative">
               <button onClick={() => setShowLoginModal(false)} className="absolute top-5 right-5 text-gray-400"><X/></button>
-              <div className="text-center mb-6">
-                 <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600"><User size={32} /></div>
-                 <h2 className="text-2xl font-extrabold text-gray-900">Identifique-se</h2>
-              </div>
+              <h2 className="text-2xl font-extrabold text-gray-900 text-center mb-6">Identifique-se</h2>
               <form onSubmit={handleLogin} className="space-y-4">
                 <input required className="w-full p-3.5 bg-gray-50 border rounded-xl" placeholder="Nome (Use 'admin' para painel)" value={loginForm.nome} onChange={e => setLoginForm({...loginForm, nome: e.target.value})} />
                 <input type="tel" className="w-full p-3.5 bg-gray-50 border rounded-xl" placeholder="WhatsApp" value={loginForm.whatsapp} onChange={e => setLoginForm({...loginForm, whatsapp: e.target.value})} />
@@ -208,35 +283,51 @@ function App() {
                 <div className="mb-6 inline-block p-4 bg-green-50 rounded-full text-green-600"><QrCode size={48}/></div>
                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Pagar Destaque</h3>
                 <div className="bg-gray-100 p-4 rounded-xl mb-6 font-mono text-xs text-gray-500 break-all border border-dashed border-gray-300">
-                    00020126580014BR.GOV.BCB.PIX0136123e4567-PLATAFORMA-LANCEPRIME
+                    00020126580014BR.GOV.BCB.PIX0136123e4567-DESTAQUE-1990
                 </div>
                 <button onClick={finalizarPublicacao} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl">Confirmar Pagamento</button>
             </div>
         </div>
       )}
 
-      {/* MODAL PAGAMENTO VENCEDOR (GERA RECIBO) */}
+      {/* MODAL PAGAMENTO VENCEDOR (AGORA COM ETAPAS) */}
       {modalPagamentoVencedor && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl">
                 <button onClick={() => setModalPagamentoVencedor(null)} className="absolute top-4 right-4 text-gray-400"><X/></button>
                 <h3 className="font-bold text-2xl text-gray-900 mb-1">Pagar Arremate</h3>
                 <p className="text-gray-500 text-sm mb-6">Valor: {formatarMoeda(modalPagamentoVencedor.valorAtual)}</p>
-                <div className="bg-gray-900 p-4 rounded-2xl mb-4 inline-block"><QrCode size={160} className="text-white"/></div>
-                <p className="text-xs text-gray-400 mb-4">Pagamento para: <b>LancePrime Intermediações</b></p>
                 
-                <div className="space-y-3">
-                    <button className="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 text-sm flex items-center justify-center gap-2">
-                        <CreditCard size={16}/> PAGAR COM CARTÃO
-                    </button>
-                    <button className="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 text-sm flex items-center justify-center gap-2">
-                        <QrCode size={16}/> PAGAR COM PIX
-                    </button>
-                    <div className="h-px bg-gray-200 my-2"></div>
-                    <button onClick={confirmarPagamentoVencedor} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200">
-                        CONFIRMAR E GERAR RECIBO
-                    </button>
-                </div>
+                {/* ETAPA 0: ESCOLHA */}
+                {etapaPagamento === 0 && (
+                    <div className="space-y-3">
+                        <p className="font-bold text-gray-700 mb-4">Escolha a forma de pagamento:</p>
+                        <button onClick={() => selecionarMetodo('PIX')} className="w-full bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-800 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-colors">
+                            <QrCode size={24}/> PAGAR COM PIX
+                        </button>
+                        <button onClick={() => selecionarMetodo('CARTAO')} className="w-full bg-gray-50 border border-gray-100 hover:bg-gray-100 text-gray-800 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-colors">
+                            <CreditCard size={24}/> PAGAR COM CARTÃO
+                        </button>
+                    </div>
+                )}
+
+                {/* ETAPA 1: PAGAMENTO E CONFIRMAÇÃO */}
+                {etapaPagamento === 1 && (
+                    <div className="animate-fade-in">
+                        {metodoSelecionado === 'PIX' ? (
+                            <div className="bg-gray-900 p-4 rounded-2xl mb-4 inline-block"><QrCode size={160} className="text-white"/></div>
+                        ) : (
+                            <div className="bg-gray-100 p-8 rounded-2xl mb-4 text-gray-400"><CreditCard size={64} className="mx-auto mb-2"/>Simulação de Cartão</div>
+                        )}
+                        <p className="text-xs text-gray-400 mb-4">Pagamento via <b>{metodoSelecionado}</b> para LancePrime.</p>
+                        <div className="space-y-3">
+                            <button onClick={confirmarPagamentoVencedor} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200">
+                                CONFIRMAR PAGAMENTO E GERAR RECIBO
+                            </button>
+                            <button onClick={() => setEtapaPagamento(0)} className="text-xs text-gray-400 underline">Voltar</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
       )}
@@ -266,42 +357,21 @@ function App() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
         
-        {/* --- HOME --- */}
+        {/* --- HOME (COM CARD NOVO) --- */}
         {pagina === 'home' && (
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Award className="text-blue-600"/> Leilões Ativos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {leiloes.map((leilao) => {
-                const status = formatarTempo(leilao.termino);
-                const encerrado = status === "ENCERRADO";
-                const euGanhei = encerrado && user && leilao.lances.length > 0 && leilao.lances[0].usuario === user.nome;
-
-                return (
-                  <div key={leilao.id} className={`bg-white rounded-2xl hover:shadow-xl transition-all duration-300 overflow-hidden group border ${leilao.destaque ? 'border-amber-300 shadow-amber-100 ring-1 ring-amber-100' : 'border-gray-100 shadow-sm'}`}>
-                    <div className="relative h-56 overflow-hidden">
-                      <img src={leilao.foto} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Item" />
-                      {leilao.destaque && <div className="absolute top-3 left-3 bg-amber-400 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full flex gap-1 items-center shadow-lg"><Star size={10} fill="currentColor"/> PREMIUM</div>}
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-blue-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex gap-1 items-center"><Clock size={12}/> {status}</div>
-                    </div>
-                    <div className="p-5">
-                      <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md"><MapPin size={12}/> {leilao.localizacao || 'Brasil'}</div>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md"><Truck size={12}/> {leilao.frete}</div>
-                      </div>
-                      <div className={`p-4 rounded-xl mb-4 flex justify-between items-end ${leilao.destaque ? 'bg-amber-50/50 border border-amber-100' : 'bg-gray-50 border border-gray-100'}`}>
-                        <div><p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Lance Atual</p><p className={`text-2xl font-black ${leilao.destaque ? 'text-amber-600' : 'text-blue-900'}`}>{formatarMoeda(leilao.valorAtual)}</p></div>
-                        {leilao.lances.length > 0 && <div className="text-right"><p className="text-[10px] text-gray-400">Último de</p><p className="text-xs font-bold text-gray-700 max-w-[80px] truncate">{leilao.lances[0].usuario}</p></div>}
-                      </div>
-                      {encerrado ? (
-                        euGanhei ? <BotaoAcaoVencedor leilao={leilao} /> : 
-                        <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl cursor-not-allowed text-sm">LEILÃO ENCERRADO</button>
-                      ) : (
-                        <button onClick={() => enviarLance(leilao)} className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg transition-transform active:scale-[0.98] flex items-center justify-center gap-2 ${leilao.destaque ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}><Gavel size={18}/> LANCE (+{formatarMoeda(leilao.incrementoMinimo)})</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {leiloes.map((leilao) => (
+                  <CardLeilao 
+                    key={leilao.id} 
+                    leilao={leilao} 
+                    user={user} 
+                    agora={agora} 
+                    onLance={enviarLance} 
+                    onPagar={abrirModalPagamentoVencedor}
+                  />
+              ))}
             </div>
           </div>
         )}
@@ -313,7 +383,6 @@ function App() {
                     <h2 className="text-2xl font-bold mb-8 text-red-800 border-b pb-4 flex items-center gap-2"><Lock size={24}/> Área Administrativa</h2>
                     <h3 className="font-bold text-gray-700 mb-4">Pagamentos Validados (Passo 2/2)</h3>
                     <div className="space-y-4">
-                        {/* ADMIN SÓ VÊ O STATUS 'validado' (Já passou pelo vendedor) */}
                         {leiloes.filter(l => l.statusPagamento === 'validado').length === 0 ? <p className="text-gray-400">Nenhum pagamento validado para aprovação final.</p> : 
                          leiloes.filter(l => l.statusPagamento === 'validado').map(l => (
                             <div key={l.id} className="bg-red-50 border border-red-200 p-5 rounded-2xl">
@@ -332,7 +401,7 @@ function App() {
                                         <div className="flex items-center gap-2 font-bold text-gray-800 mb-2 border-b pb-2"><Receipt size={16} /> RECIBO DIGITAL VALIDADO</div>
                                         <p>ID: {l.dadosRecibo.id}</p>
                                         <p>De: {l.dadosRecibo.comprador}</p>
-                                        <p>Para: {l.dadosRecibo.vendedor} (Intermediação)</p>
+                                        <p>Forma: {l.dadosRecibo.metodo}</p>
                                         <p>Data: {l.dadosRecibo.data}</p>
                                     </div>
                                 )}
@@ -347,7 +416,7 @@ function App() {
              </div>
         )}
 
-        {/* --- CRIAR LEILÃO --- */}
+        {/* --- CRIAR LEILÃO (MANTIDO) --- */}
         {pagina === 'criar' && (
           <div className="max-w-2xl mx-auto">
              {!verificarAcaoRestrita() ? (
@@ -442,7 +511,7 @@ function App() {
                                <div className="flex justify-between items-center mt-2 border-t pt-4">
                                    <span className="text-sm text-gray-500">Comprador: <b>{l.lances[0].usuario}</b></span>
                                    
-                                   {formatarTempo(l.termino) === "ENCERRADO" && (
+                                   {formatarTempo(l.termino, agora) === "ENCERRADO" && (
                                        <>
                                            {(!l.statusPagamento || l.statusPagamento === 'pendente') && (
                                                <span className="text-orange-500 font-bold text-xs flex items-center gap-1"><Info size={14}/> AGUARDANDO PAGAMENTO</span>
@@ -471,7 +540,7 @@ function App() {
                        <div key={l.id} className="border p-5 rounded-2xl flex justify-between items-center">
                            <div><div className="font-bold text-gray-900">{l.item}</div><div className="text-sm">Meu lance: <b>{formatarMoeda(l.lances.find(la => la.usuario === user.nome).valor)}</b></div></div>
                            <div className="text-right">
-                               {formatarTempo(l.termino) === "ENCERRADO" && l.lances[0].usuario === user.nome && <BotaoAcaoVencedor leilao={l} />}
+                               {formatarTempo(l.termino, agora) === "ENCERRADO" && l.lances[0].usuario === user.nome && <BotaoAcaoVencedor leilao={l} onPagar={abrirModalPagamentoVencedor} user={user} />}
                            </div>
                        </div>
                    ))}
