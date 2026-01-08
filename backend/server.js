@@ -21,8 +21,9 @@ let leiloes = [
         descricao: "V8 Turbo, 0km, Completo com teto solar.",
         valorAtual: 150000,
         incrementoMinimo: 5000,
-        termino: Date.now() + 600000, // 10 min
+        termino: Date.now() + 600000,
         foto: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800",
+        destaque: true, // EXEMPLO DE ITEM PREMIUM
         lances: []
     }
 ];
@@ -30,7 +31,7 @@ let leiloes = [
 io.on('connection', (socket) => {
     socket.emit('update_lista', leiloes);
 
-    // 1. CRIAR NOVO LEILÃO
+    // 1. CRIAR NOVO LEILÃO (Agora aceita o campo 'destaque')
     socket.on('criar_leilao', (dados) => {
         const novoLeilao = {
             id: Date.now(),
@@ -41,12 +42,24 @@ io.on('connection', (socket) => {
             incrementoMinimo: Number(dados.incremento),
             termino: Date.now() + (dados.minutos * 60000),
             foto: dados.foto || "https://placehold.co/600x400?text=Sem+Imagem",
+            destaque: dados.destaque || false, // Recebe se é Premium ou não
             lances: []
         };
-        leiloes.unshift(novoLeilao);
+        
+        // Se for destaque, coloca no topo da lista, senão coloca no fim (ou abaixo dos destaques)
+        if (dados.destaque) {
+            leiloes.unshift(novoLeilao);
+        } else {
+            // Encontra o último destaque para inserir logo após
+            const ultimoDestaque = leiloes.findLastIndex(l => l.destaque);
+            leiloes.splice(ultimoDestaque + 1, 0, novoLeilao);
+        }
+
         io.emit('update_lista', leiloes);
-        // NOTIFICAR TODOS
-        io.emit('notificacao', { tipo: 'info', msg: `📢 Novo leilão: ${dados.titulo}` });
+        
+        const tipoMsg = dados.destaque ? 'warning' : 'info';
+        const textoMsg = dados.destaque ? `⭐ NOVO DESTAQUE: ${dados.titulo}` : `📢 Novo leilão: ${dados.titulo}`;
+        io.emit('notificacao', { tipo: tipoMsg, msg: textoMsg });
     });
 
     // 2. DAR LANCE
@@ -65,12 +78,11 @@ io.on('connection', (socket) => {
                 // Regra dos 2 minutos
                 if (leilao.termino - agora < 120000) {
                     leilao.termino = agora + 120000;
-                    io.emit('notificacao', { tipo: 'warning', msg: `🔥 Reta final! O tempo do ${leilao.item} foi estendido!` });
+                    io.emit('notificacao', { tipo: 'warning', msg: `🔥 Tempo estendido: ${leilao.item}!` });
                 }
 
                 io.emit('update_lista', leiloes);
-                // NOTIFICAR O LANCE
-                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} deu lance de R$ ${valor.toLocaleString()} no ${leilao.item}!` });
+                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} ofertou R$ ${valor.toLocaleString()} no ${leilao.item}!` });
             }
         }
     });
