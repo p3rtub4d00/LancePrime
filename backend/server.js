@@ -43,6 +43,7 @@ io.on('connection', (socket) => {
             localizacao: dados.localizacao,
             frete: dados.frete,
             valorAtual: Number(dados.valorInicial),
+            // REMOVIDO INCREMENTO: Agora o sistema aceita qualquer valor > atual
             termino: Date.now() + (dados.minutos * 60000),
             foto: dados.foto || "https://placehold.co/600x400?text=Sem+Imagem",
             destaque: dados.destaque || false,
@@ -58,16 +59,16 @@ io.on('connection', (socket) => {
             leiloes.splice(ultimoDestaque + 1, 0, novoLeilao);
         }
         io.emit('update_lista', leiloes);
-        io.emit('notificacao', { tipo: 'info', msg: `📢 Novo item: ${dados.titulo}` });
+        io.emit('notificacao', { tipo: 'info', msg: `📢 Novo leilão: ${dados.titulo}` });
     });
 
-    // LANCE LIVRE (Basta ser maior que o atual)
     socket.on('dar_lance', (dados) => {
         const { idLeilao, valor, usuario, whatsapp } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
         
         if (leilao) {
             const agora = Date.now();
+            // REGRA: Lance apenas precisa ser MAIOR que o atual
             if (valor > leilao.valorAtual && agora < leilao.termino) {
                 leilao.valorAtual = Number(valor);
                 leilao.lances.unshift({ usuario, whatsapp, valor: Number(valor), data: new Date().toLocaleTimeString() });
@@ -77,12 +78,12 @@ io.on('connection', (socket) => {
                     io.emit('notificacao', { tipo: 'warning', msg: `🔥 Tempo extra: ${leilao.item}!` });
                 }
                 io.emit('update_lista', leiloes);
-                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} lidera com R$ ${Number(valor).toLocaleString()}!` });
+                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} deu lance de R$ ${Number(valor).toLocaleString()}!` });
             }
         }
     });
 
-    // FLUXO DE PAGAMENTO
+    // FLUXO DE PAGAMENTO (1. Gera Recibo -> Vendedor)
     socket.on('gerar_recibo_pagamento', (dados) => {
         const { idLeilao, recibo } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
@@ -90,35 +91,37 @@ io.on('connection', (socket) => {
             leilao.statusPagamento = 'analise';
             leilao.dadosRecibo = recibo;
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `🧾 Recibo gerado! Vendedor notificado.` });
+            io.emit('notificacao', { tipo: 'info', msg: `🧾 Recibo gerado para ${leilao.item}. Aguardando Vendedor.` });
         }
     });
 
+    // FLUXO DE PAGAMENTO (2. Vendedor Valida -> Admin)
     socket.on('vendedor_validar_recibo', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'validado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `🛡️ Recibo validado! Admin conferindo.` });
+            io.emit('notificacao', { tipo: 'info', msg: `🛡️ Vendedor validou recibo. Aguardando Admin.` });
         }
     });
 
+    // FLUXO DE PAGAMENTO (3. Admin Aprova -> Fim)
     socket.on('admin_aprovar_pagamento', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'aprovado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento Retido com Sucesso! Envio autorizado.` });
+            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento Aprovado! Dinheiro seguro com a plataforma.` });
         }
     });
 
-    // FINALIZAÇÃO
+    // SEGURANÇA FINAL
     socket.on('comprador_confirmar_recebimento', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'finalizado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'success', msg: `🎉 Entrega confirmada! Dinheiro liberado.` });
+            io.emit('notificacao', { tipo: 'success', msg: `🎉 Negócio Concluído: ${leilao.item}` });
         }
     });
 
@@ -127,7 +130,7 @@ io.on('connection', (socket) => {
         if (leilao) {
             leilao.statusPagamento = 'bloqueado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'error', msg: `🚨 Disputa aberta para ${leilao.item}!` });
+            io.emit('notificacao', { tipo: 'error', msg: `🚨 Problema reportado no item ${leilao.item}.` });
         }
     });
 });
