@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer } from 'lucide-react';
+import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, TrendingUp, Wallet } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -15,7 +15,8 @@ function App() {
   
   // MODAIS
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [modalPagamento, setModalPagamento] = useState(false);
+  const [modalPagamento, setModalPagamento] = useState(false); // Para Destaque
+  const [modalComissao, setModalComissao] = useState(false); // Novo: Explicação da taxa
 
   // DADOS DOS FORMULÁRIOS
   const [loginForm, setLoginForm] = useState({ nome: '', whatsapp: '', cpf: '' });
@@ -23,6 +24,9 @@ function App() {
     titulo: '', descricao: '', valorInicial: '', incremento: '', minutos: 10, foto: '', destaque: false,
     localizacao: '', frete: 'retirada' 
   });
+
+  // CONFIGURAÇÃO DA COMISSÃO
+  const TAXA_COMISSAO = 0.05; // 5%
 
   useEffect(() => {
     socket.on('update_lista', (data) => setLeiloes(data));
@@ -125,7 +129,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
 
-      {/* MODAL LOGIN */}
+      {/* MODAL LOGIN (MANTIDO IGUAL) */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative border border-gray-100">
@@ -156,7 +160,7 @@ function App() {
         </div>
       )}
 
-      {/* HEADER */}
+      {/* HEADER (MANTIDO IGUAL) */}
       <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2 text-blue-900 font-extrabold text-xl tracking-tight cursor-pointer" onClick={() => setPagina('home')}>
@@ -185,7 +189,7 @@ function App() {
 
       <main className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
         
-        {/* --- HOME --- */}
+        {/* --- HOME (MANTIDO IGUAL) --- */}
         {pagina === 'home' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-4">
@@ -242,7 +246,7 @@ function App() {
           </div>
         )}
 
-        {/* --- CRIAR LEILÃO (DESIGN NOVO) --- */}
+        {/* --- CRIAR LEILÃO (ATUALIZADO COM AVISO DE COMISSÃO) --- */}
         {pagina === 'criar' && (
           <div className="max-w-2xl mx-auto">
              {!verificarAcaoRestrita() ? (
@@ -252,22 +256,17 @@ function App() {
                 </div>
              ) : (
                  <>
-                    {/* MODAL PAGAMENTO */}
+                    {/* MODAL PAGAMENTO PREMIUM */}
                     {modalPagamento && (
                         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
                             <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center relative shadow-2xl">
                                 <button onClick={() => setModalPagamento(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X/></button>
                                 <div className="mb-6 inline-block p-4 bg-green-50 rounded-full text-green-600"><QrCode size={48}/></div>
                                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Pagar Destaque</h3>
-                                <p className="text-gray-500 text-sm mb-6">Seu anúncio ficará no topo com borda dourada.</p>
                                 <div className="bg-gray-100 p-4 rounded-xl mb-6 font-mono text-xs text-gray-500 break-all border border-dashed border-gray-300">
                                     00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000
                                 </div>
-                                <div className="flex justify-between items-center mb-6 px-4">
-                                    <span className="text-gray-500 text-sm">Total a pagar</span>
-                                    <span className="text-2xl font-bold text-gray-900">R$ 19,90</span>
-                                </div>
-                                <button onClick={finalizarPublicacao} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200 transition-transform active:scale-[0.98]">Confirmar Pagamento</button>
+                                <button onClick={finalizarPublicacao} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200">Confirmar Pagamento</button>
                             </div>
                         </div>
                     )}
@@ -279,54 +278,62 @@ function App() {
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2>
-                                <p className="text-gray-500 text-sm">Preencha os dados para vender seu item.</p>
+                                <p className="text-gray-500 text-sm">Venda seus itens para milhares de usuários.</p>
+                            </div>
+                        </div>
+
+                        {/* AVISO DE COMISSÃO (NOVO) */}
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6 flex gap-3 items-start">
+                            <Info className="text-blue-500 mt-0.5 shrink-0" size={20}/>
+                            <div>
+                                <h4 className="font-bold text-blue-900 text-sm">Política de Venda</h4>
+                                <p className="text-xs text-blue-700 mt-1">
+                                    A publicação é gratuita. Cobramos uma <b>taxa administrativa de 5%</b> sobre o valor final do arremate apenas se o produto for vendido.
+                                </p>
                             </div>
                         </div>
 
                         <form onSubmit={tentarCriarLeilao} className="space-y-6">
-                            {/* GRUPO: INFORMAÇÕES BÁSICAS */}
                             <div className="space-y-4">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Sobre o Produto</label>
                                 <div className="relative group">
                                     <Tag className="absolute left-4 top-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20}/>
-                                    <input required className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400" 
+                                    <input required className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium" 
                                         value={novoItem.titulo} onChange={e => setNovoItem({...novoItem, titulo: e.target.value})} placeholder="Título do Anúncio (Ex: iPhone 15 Pro)" />
                                 </div>
                                 <div className="relative group">
                                     <AlignLeft className="absolute left-4 top-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20}/>
-                                    <textarea required className="w-full pl-12 p-4 h-32 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-gray-900 placeholder:text-gray-400" 
-                                        value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descreva detalhes, estado de conservação, etc..." />
+                                    <textarea required className="w-full pl-12 p-4 h-32 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none" 
+                                        value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} placeholder="Descreva os detalhes..." />
                                 </div>
                                 <div className="relative group">
                                     <ImageIcon className="absolute left-4 top-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20}/>
                                     <input required type="url" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-gray-600" 
-                                        value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="Cole o link da imagem aqui (https://...)" />
+                                        value={novoItem.foto} onChange={e => setNovoItem({...novoItem, foto: e.target.value})} placeholder="URL da Imagem" />
                                 </div>
                             </div>
 
-                            {/* GRUPO: VALORES E TEMPO */}
                             <div className="pt-4 space-y-4">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Regras do Leilão</label>
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Valores</label>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="relative group">
                                         <DollarSign className="absolute left-4 top-4 text-gray-400 group-focus-within:text-green-500 transition-colors" size={20}/>
-                                        <input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all font-bold text-gray-900" 
+                                        <input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all font-bold" 
                                             value={novoItem.valorInicial} onChange={e => setNovoItem({...novoItem, valorInicial: e.target.value})} placeholder="Valor Inicial" />
                                     </div>
                                     <div className="relative group">
                                         <PlusCircle className="absolute left-4 top-4 text-gray-400 group-focus-within:text-green-500 transition-colors" size={20}/>
-                                        <input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all font-bold text-gray-900" 
+                                        <input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all font-bold" 
                                             value={novoItem.incremento} onChange={e => setNovoItem({...novoItem, incremento: e.target.value})} placeholder="Incremento" />
                                     </div>
                                 </div>
                                 <div className="relative group">
                                     <Timer className="absolute left-4 top-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={20}/>
                                     <input required type="number" className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none transition-all" 
-                                        value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Duração em minutos (Ex: 10)" />
+                                        value={novoItem.minutos} onChange={e => setNovoItem({...novoItem, minutos: e.target.value})} placeholder="Duração (minutos)" />
                                 </div>
                             </div>
 
-                            {/* GRUPO: LOGÍSTICA */}
                             <div className="pt-4 space-y-4">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Entrega</label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -337,7 +344,7 @@ function App() {
                                     </div>
                                     <div className="relative group">
                                         <Truck className="absolute left-4 top-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" size={20}/>
-                                        <select className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all appearance-none text-gray-600" 
+                                        <select className="w-full pl-12 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all text-gray-600" 
                                             value={novoItem.frete} onChange={e => setNovoItem({...novoItem, frete: e.target.value})}>
                                             <option value="retirada">Somente Retirada</option>
                                             <option value="correios">Envio Correios</option>
@@ -347,25 +354,19 @@ function App() {
                                 </div>
                             </div>
 
-                            {/* DESTAQUE PREMIUM CARD */}
-                            <div 
-                                onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})}
-                                className={`mt-6 p-6 rounded-2xl cursor-pointer transition-all border-2 flex items-center gap-5 relative overflow-hidden group ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300'}`}
-                            >
+                            <div onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})} className={`mt-6 p-6 rounded-2xl cursor-pointer transition-all border-2 flex items-center gap-5 relative overflow-hidden group ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-sm z-10 ${novoItem.destaque ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                     <Star size={24} fill={novoItem.destaque ? "currentColor" : "none"}/>
                                 </div>
                                 <div className="z-10">
                                     <h4 className={`font-bold text-lg ${novoItem.destaque ? 'text-amber-900' : 'text-gray-700'}`}>Destaque Premium</h4>
-                                    <p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo da lista e venda 3x mais rápido.</p>
+                                    <p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo da lista.</p>
                                 </div>
                                 {novoItem.destaque && <div className="absolute top-4 right-4 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded">R$ 19,90</div>}
-                                {/* Efeito de brilho no fundo */}
-                                {novoItem.destaque && <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-amber-200 rounded-full blur-3xl opacity-50"></div>}
                             </div>
 
-                            <button type="submit" className={`w-full font-bold py-5 rounded-xl text-lg shadow-xl transition-transform active:scale-[0.98] mt-4 ${novoItem.destaque ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200' : 'bg-green-600 hover:bg-green-700 text-white shadow-green-200'}`}>
-                                {novoItem.destaque ? 'CONTINUAR PARA PAGAMENTO' : 'PUBLICAR ANÚNCIO GRÁTIS'}
+                            <button type="submit" className={`w-full font-bold py-5 rounded-xl text-lg shadow-xl mt-4 ${novoItem.destaque ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200' : 'bg-green-600 hover:bg-green-700 text-white shadow-green-200'}`}>
+                                {novoItem.destaque ? 'PAGAR E PUBLICAR' : 'PUBLICAR ANÚNCIO'}
                             </button>
                         </form>
                     </div>
@@ -374,37 +375,61 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL --- */}
+        {/* --- PAINEL (ATUALIZADO COM FINANCEIRO) --- */}
         {pagina === 'perfil' && user && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-               <h2 className="text-2xl font-bold mb-8 text-gray-800 border-b pb-4">Olá, {user.nome} 👋</h2>
+               <h2 className="text-2xl font-bold mb-8 text-gray-800 border-b pb-4">Financeiro</h2>
                
                {/* MEUS PRODUTOS */}
-               <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><DollarSign size={20} className="text-blue-500"/> Meus Anúncios</h3>
+               <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><DollarSign size={20} className="text-blue-500"/> Minhas Vendas</h3>
                <div className="grid gap-4 mb-10">
-                   {leiloes.filter(l => l.dono === user.nome).length === 0 ? <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400">Você ainda não anunciou nada.</div> : 
-                    leiloes.filter(l => l.dono === user.nome).map(l => (
-                       <div key={l.id} className="bg-white border border-gray-100 p-5 rounded-2xl flex justify-between items-center hover:shadow-md transition-shadow">
-                           <div>
-                               <div className="font-bold text-gray-900 text-lg">{l.item}</div>
-                               <div className="text-sm text-gray-500 mt-1 flex gap-2 items-center"><Clock size={12}/> {formatarTempo(l.termino)}</div>
-                           </div>
-                           <div className="text-right">
-                               <div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div>
-                               {formatarTempo(l.termino) === "ENCERRADO" && l.lances.length > 0 && (
-                                   <BotaoContato leilao={l} tipo="vendedor" />
+                   {leiloes.filter(l => l.dono === user.nome).length === 0 ? <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400">Sem vendas ainda.</div> : 
+                    leiloes.filter(l => l.dono === user.nome).map(l => {
+                        const comissao = l.valorAtual * TAXA_COMISSAO;
+                        const liquido = l.valorAtual - comissao;
+                        const encerrado = formatarTempo(l.termino) === "ENCERRADO";
+
+                       return (
+                           <div key={l.id} className="bg-white border border-gray-100 p-5 rounded-2xl">
+                               <div className="flex justify-between items-start mb-4">
+                                   <div>
+                                       <div className="font-bold text-gray-900 text-lg">{l.item}</div>
+                                       <div className="text-sm text-gray-500 mt-1 flex gap-2 items-center"><Clock size={12}/> {formatarTempo(l.termino)}</div>
+                                   </div>
+                                   <div className="text-right">
+                                       <div className="font-bold text-blue-900 text-xl">{formatarMoeda(l.valorAtual)}</div>
+                                       <div className="text-xs text-gray-400">Valor Bruto</div>
+                                   </div>
+                               </div>
+
+                               {/* ÁREA FINANCEIRA */}
+                               {l.lances.length > 0 && (
+                                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row justify-between gap-4">
+                                       <div className="flex gap-4 text-sm">
+                                           <div>
+                                               <span className="block text-gray-400 text-xs uppercase">Comissão (5%)</span>
+                                               <span className="font-bold text-red-500">- {formatarMoeda(comissao)}</span>
+                                           </div>
+                                           <div className="w-px bg-gray-200"></div>
+                                           <div>
+                                                <span className="block text-gray-400 text-xs uppercase">A Receber</span>
+                                                <span className="font-bold text-green-600">{formatarMoeda(liquido)}</span>
+                                           </div>
+                                       </div>
+                                       {encerrado && <BotaoContato leilao={l} tipo="vendedor" />}
+                                   </div>
                                )}
                            </div>
-                       </div>
-                    ))
+                       );
+                    })
                    }
                </div>
 
-               {/* MEUS LANCES */}
+               {/* MEUS LANCES (MANTIDO) */}
                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Gavel size={20} className="text-blue-500"/> Minhas Apostas</h3>
                <div className="grid gap-4">
-                   {leiloes.filter(l => l.lances.some(lance => lance.usuario === user.nome)).length === 0 ? <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400">Nenhum lance dado ainda.</div> : 
+                   {leiloes.filter(l => l.lances.some(lance => lance.usuario === user.nome)).length === 0 ? <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400">Sem apostas.</div> : 
                     leiloes.filter(l => l.lances.some(lance => lance.usuario === user.nome)).map(l => {
                         const meuUltimo = l.lances.find(la => la.usuario === user.nome);
                         const ganhando = l.lances[0].usuario === user.nome;
