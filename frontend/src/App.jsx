@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt, AlertTriangle, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Gavel, Clock, User, PlusCircle, Home, LayoutDashboard, DollarSign, ShieldCheck, Award, LogOut, Phone, FileText, Star, X, QrCode, MapPin, Truck, MessageCircle, Image as ImageIcon, AlignLeft, Tag, Timer, Info, CheckCircle, Hourglass, Lock, FileCheck, CreditCard, Receipt, AlertTriangle, ThumbsUp, ThumbsDown, RefreshCcw } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// CONEXÃO COM O BACKEND
 const socket = io('https://duckhuntbet.onrender.com');
 
-// FORMATAÇÃO DE TEMPO
 const formatarTempo = (termino, agora) => {
     const diff = termino - agora;
     if (diff <= 0) return "ENCERRADO";
@@ -18,22 +16,16 @@ const formatarTempo = (termino, agora) => {
     if (d > 0) return `${d}d ${h}h ${m}m`;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
-
 const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// COMPONENTE CARD DE LEILÃO
 const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onConfirmarEntrega, onReportarProblema }) => {
     const [valorManual, setValorManual] = useState('');
     const status = formatarTempo(leilao.termino, agora);
     const encerrado = status === "ENCERRADO";
     const euGanhei = encerrado && user && leilao.lances.length > 0 && leilao.lances[0].usuario === user.nome;
-    
-    // Mínimo é 1 real acima do atual
     const minimoNecessario = leilao.valorAtual + 1;
 
-    useEffect(() => {
-        setValorManual(minimoNecessario);
-    }, [leilao.valorAtual]);
+    useEffect(() => { setValorManual(minimoNecessario); }, [leilao.valorAtual]);
 
     return (
         <div className={`bg-white rounded-2xl hover:shadow-xl transition-all duration-300 overflow-hidden group border ${leilao.destaque ? 'border-amber-300 shadow-amber-100 ring-1 ring-amber-100' : 'border-gray-100 shadow-sm'}`}>
@@ -51,17 +43,11 @@ const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onConfirmarEntrega,
                     <div><p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Lance Atual</p><p className={`text-2xl font-black ${leilao.destaque ? 'text-amber-600' : 'text-blue-900'}`}>{formatarMoeda(leilao.valorAtual)}</p></div>
                     {leilao.lances.length > 0 && <div className="text-right"><p className="text-[10px] text-gray-400">Último de</p><p className="text-xs font-bold text-gray-700 max-w-[80px] truncate">{leilao.lances[0].usuario}</p></div>}
                 </div>
-                
                 {encerrado ? (
-                    euGanhei ? 
-                        <BotaoAcaoVencedor leilao={leilao} onPagar={onPagar} onConfirmarEntrega={onConfirmarEntrega} onReportarProblema={onReportarProblema} user={user} /> : 
-                        <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl cursor-not-allowed text-sm">LEILÃO ENCERRADO</button>
+                    euGanhei ? <BotaoAcaoVencedor leilao={leilao} onPagar={onPagar} onConfirmarEntrega={onConfirmarEntrega} onReportarProblema={onReportarProblema} user={user} /> : <button disabled className="w-full bg-gray-100 text-gray-400 font-bold py-3 rounded-xl cursor-not-allowed text-sm">LEILÃO ENCERRADO</button>
                 ) : (
                     <div className="flex gap-2">
-                        <div className="relative w-full">
-                            <span className="absolute left-3 top-3.5 text-gray-400 text-xs font-bold">R$</span>
-                            <input type="number" value={valorManual} onChange={(e) => setValorManual(e.target.value)} className="w-full pl-8 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        </div>
+                        <div className="relative w-full"><span className="absolute left-3 top-3.5 text-gray-400 text-xs font-bold">R$</span><input type="number" value={valorManual} onChange={(e) => setValorManual(e.target.value)} className="w-full pl-8 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                         <button onClick={() => onLance(leilao, valorManual)} className={`px-4 py-3 rounded-xl text-white font-bold shadow-lg transition-transform active:scale-[0.95] ${leilao.destaque ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>LANCE</button>
                     </div>
                 )}
@@ -71,33 +57,24 @@ const CardLeilao = ({ leilao, user, agora, onLance, onPagar, onConfirmarEntrega,
     );
 };
 
-// BOTÃO VENCEDOR (Fluxo Completo)
 const BotaoAcaoVencedor = ({ leilao, onPagar, onConfirmarEntrega, onReportarProblema, user }) => {
     if (!user) return null;
     const status = leilao.statusPagamento || 'pendente';
 
-    if (status === 'pendente') {
-        return <button onClick={() => onPagar(leilao)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2 animate-pulse"><CreditCard size={20}/> PAGAR AGORA</button>;
-    }
-    if (status === 'analise' || status === 'validado') {
-        return (
-            <div className="w-full mt-2">
-                <button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 flex items-center justify-center gap-2 cursor-wait"><Hourglass size={20}/> PROCESSANDO</button>
-                <div className="text-center text-[10px] text-gray-400 mt-1">{status === 'analise' ? 'Vendedor conferindo...' : 'Admin aprovando...'}</div>
-            </div>
-        );
-    }
+    if (status === 'pendente') return <button onClick={() => onPagar(leilao)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2 animate-pulse"><CreditCard size={20}/> PAGAR AGORA</button>;
+    if (status === 'analise' || status === 'validado') return <div className="w-full mt-2"><button disabled className="w-full bg-gray-100 text-gray-500 font-bold py-3 rounded-xl border border-gray-200 flex items-center justify-center gap-2 cursor-wait"><Hourglass size={20}/> PROCESSANDO</button><div className="text-center text-[10px] text-gray-400 mt-1">Aguardando aprovação...</div></div>;
     if (status === 'aprovado') {
         return (
             <div className="w-full mt-2 space-y-2">
                 <div className="bg-blue-50 text-blue-800 text-[10px] p-2 rounded-lg text-center border border-blue-100">Dinheiro retido com segurança.</div>
                 <button onClick={() => onConfirmarEntrega(leilao.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm"><ThumbsUp size={16}/> RECEBI E GOSTEI</button>
                 <button onClick={() => onReportarProblema(leilao.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 rounded-xl border border-red-200 flex items-center justify-center gap-2 text-xs"><ThumbsDown size={14}/> TENHO UM PROBLEMA</button>
-                <a href={`https://wa.me/${leilao.whatsapp}?text=Ola, paguei o item ${leilao.item}`} target="_blank" className="block text-center text-blue-500 text-xs hover:underline mt-2">Falar com Vendedor</a>
+                <a href={`https://wa.me/${leilao.whatsapp}?text=Ola`} target="_blank" className="block text-center text-blue-500 text-xs hover:underline mt-2">Falar com Vendedor</a>
             </div>
         );
     }
     if (status === 'finalizado') return <div className="w-full bg-green-100 text-green-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-green-200">NEGÓCIO CONCLUÍDO! 🎉</div>;
+    if (status === 'reembolsado') return <div className="w-full bg-orange-100 text-orange-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-orange-200">REEMBOLSADO ↩️</div>;
     if (status === 'bloqueado') return <div className="w-full bg-red-100 text-red-700 font-bold py-3 rounded-xl mt-2 text-center text-sm border border-red-200">EM DISPUTA 🚨</div>;
     return null;
 };
@@ -150,16 +127,8 @@ function App() {
     else toast.success("Login realizado!");
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('lanceprime_user');
-    setPagina('home');
-  };
-
-  const verificarAcaoRestrita = () => {
-    if (!user) { setShowLoginModal(true); return false; }
-    return true;
-  };
+  const handleLogout = () => { setUser(null); localStorage.removeItem('lanceprime_user'); setPagina('home'); };
+  const verificarAcaoRestrita = () => { if (!user) { setShowLoginModal(true); return false; } return true; };
 
   const enviarLance = (leilao, valorDigitado) => {
     if (!verificarAcaoRestrita()) return;
@@ -183,22 +152,11 @@ function App() {
     toast.success("Anúncio publicado!");
   };
 
-  const abrirModalPagamentoVencedor = (leilao) => {
-      setEtapaPagamento(0); 
-      setMetodoSelecionado(null);
-      setModalPagamentoVencedor(leilao);
-  };
+  const abrirModalPagamentoVencedor = (leilao) => { setEtapaPagamento(0); setMetodoSelecionado(null); setModalPagamentoVencedor(leilao); };
 
   const confirmarPagamentoVencedor = () => {
     if (modalPagamentoVencedor && metodoSelecionado) {
-        const reciboGerado = {
-            id: 'REC-' + Math.floor(Math.random() * 1000000000),
-            data: new Date().toLocaleString(),
-            valor: modalPagamentoVencedor.valorAtual,
-            comprador: user.nome,
-            vendedor: modalPagamentoVencedor.dono,
-            metodo: metodoSelecionado
-        };
+        const reciboGerado = { id: 'REC-' + Math.floor(Math.random() * 1000000000), data: new Date().toLocaleString(), valor: modalPagamentoVencedor.valorAtual, comprador: user.nome, vendedor: modalPagamentoVencedor.dono, metodo: metodoSelecionado };
         socket.emit('gerar_recibo_pagamento', { idLeilao: modalPagamentoVencedor.id, recibo: reciboGerado });
         setModalPagamentoVencedor(null);
         toast.success(`Recibo #${reciboGerado.id} enviado!`);
@@ -207,18 +165,13 @@ function App() {
 
   const vendedorValidar = (id) => { socket.emit('vendedor_validar_recibo', id); toast.success("Recibo validado! Enviado para o Admin."); };
   const adminAprovar = (id) => { socket.emit('admin_aprovar_pagamento', id); toast.success("Pagamento retido com segurança!"); };
+  const confirmarEntrega = (id) => { if(window.confirm("Confirmar recebimento?")) { socket.emit('comprador_confirmar_recebimento', id); toast.success("Pagamento liberado!"); } };
+  const reportarProblema = (id) => { if(window.prompt("Descreva o problema:")) { socket.emit('comprador_reportar_problema', id); toast.error("Disputa aberta."); } };
   
-  const confirmarEntrega = (id) => {
-      if(window.confirm("Confirmar que recebeu o produto? O dinheiro será liberado.")) {
-          socket.emit('comprador_confirmar_recebimento', id);
-          toast.success("Pagamento liberado ao vendedor!");
-      }
-  };
-  
-  const reportarProblema = (id) => {
-      if(window.prompt("Descreva o problema:")) {
-          socket.emit('comprador_reportar_problema', id);
-          toast.error("Pagamento bloqueado. Admin acionado.");
+  // AÇÃO DO ADMIN PARA RESOLVER DISPUTA
+  const resolverDisputa = (id, decisao) => {
+      if(window.confirm(`Tem certeza que deseja ${decisao === 'reembolsar' ? 'DEVOLVER O DINHEIRO ao Comprador' : 'LIBERAR PAGAMENTO ao Vendedor'}?`)) {
+          socket.emit('admin_resolver_disputa', { idLeilao: id, decisao });
       }
   };
 
@@ -226,7 +179,6 @@ function App() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
 
-      {/* LOGIN MODAL */}
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative">
@@ -242,7 +194,18 @@ function App() {
         </div>
       )}
 
-      {/* MODAL PAGAMENTO VENCEDOR */}
+      {modalPagamento && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+            <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center relative shadow-2xl">
+                <button onClick={() => setModalPagamento(false)} className="absolute top-4 right-4 text-gray-400"><X/></button>
+                <div className="mb-6 inline-block p-4 bg-green-50 rounded-full text-green-600"><QrCode size={48}/></div>
+                <h3 className="font-bold text-2xl text-gray-900 mb-2">Pagar Destaque</h3>
+                <div className="bg-gray-100 p-4 rounded-xl mb-6 font-mono text-xs text-gray-500 break-all border border-dashed border-gray-300">00020126580014BR.GOV.BCB.PIX0136123e4567-DESTAQUE-1990</div>
+                <button onClick={finalizarPublicacao} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl">Confirmar Pagamento</button>
+            </div>
+        </div>
+      )}
+
       {modalPagamentoVencedor && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
             <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl">
@@ -293,6 +256,26 @@ function App() {
              <div className="max-w-4xl mx-auto space-y-8">
                  <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-red-100">
                     <h2 className="text-2xl font-bold mb-8 text-red-800 border-b pb-4 flex items-center gap-2"><Lock size={24}/> Área Administrativa</h2>
+                    
+                    {/* SEÇÃO DE DISPUTAS (NOVA) */}
+                    {leiloes.some(l => l.statusPagamento === 'bloqueado') && (
+                        <div className="mb-8 bg-red-50 border border-red-200 p-6 rounded-2xl animate-pulse">
+                            <h3 className="font-bold text-red-900 mb-4 flex items-center gap-2"><AlertTriangle/> DISPUTAS EM ABERTO</h3>
+                            <div className="space-y-4">
+                                {leiloes.filter(l => l.statusPagamento === 'bloqueado').map(l => (
+                                    <div key={l.id} className="bg-white p-4 rounded-xl shadow-sm">
+                                        <p className="font-bold text-gray-800">{l.item}</p>
+                                        <p className="text-sm text-gray-500 mb-4">Comprador reportou problema. Valor retido: <b>{formatarMoeda(l.valorAtual)}</b></p>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => resolverDisputa(l.id, 'reembolsar')} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2"><RefreshCcw size={14}/> DEVOLVER DINHEIRO (CANCELAR)</button>
+                                            <button onClick={() => resolverDisputa(l.id, 'liberar')} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2"><CheckCircle size={14}/> LIBERAR P/ VENDEDOR (REJEITAR)</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <h3 className="font-bold text-gray-700 mb-4">Pagamentos Validados</h3>
                     <div className="space-y-4">
                         {leiloes.filter(l => l.statusPagamento === 'validado').map(l => (
@@ -323,6 +306,7 @@ function App() {
              {!verificarAcaoRestrita() ? <div className="text-center py-20 bg-white rounded-3xl"><p>Aguardando login...</p></div> : 
                  <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-gray-100">
                     <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-6"><div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200"><PlusCircle size={28} /></div><div><h2 className="text-2xl font-bold text-gray-900">Novo Leilão</h2></div></div>
+                    {/* AVISO COMISSÃO */}
                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-8 flex gap-3 items-start">
                         <Info className="text-blue-500 mt-0.5 shrink-0" size={20}/>
                         <div><h4 className="font-bold text-blue-900 text-sm">Política de Venda</h4><p className="text-xs text-blue-700 mt-1">Cobramos uma <b>taxa administrativa de 5%</b> sobre o valor final.</p></div>
@@ -345,6 +329,7 @@ function App() {
                             <input type="checkbox" id="termos" className="w-5 h-5" checked={novoItem.termosAceitos} onChange={e => setNovoItem({...novoItem, termosAceitos: e.target.checked})} />
                             <label htmlFor="termos" className="text-xs text-blue-900 cursor-pointer">Estou ciente que o pagamento ficará retido na plataforma até a entrega confirmada.</label>
                         </div>
+                        {/* DESTAQUE RESTAURADO */}
                         <div onClick={() => setNovoItem({...novoItem, destaque: !novoItem.destaque})} className={`mt-4 p-6 rounded-2xl cursor-pointer border-2 flex items-center gap-5 relative overflow-hidden ${novoItem.destaque ? 'bg-amber-50 border-amber-400 shadow-lg' : 'bg-white border-gray-200'}`}>
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${novoItem.destaque ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}><Star size={24} fill={novoItem.destaque ? "currentColor" : "none"}/></div>
                             <div><h4 className={`font-bold text-lg ${novoItem.destaque ? 'text-amber-900' : 'text-gray-700'}`}>Destaque Premium</h4><p className={`text-sm ${novoItem.destaque ? 'text-amber-700' : 'text-gray-500'}`}>Apareça no topo.</p></div>
@@ -356,7 +341,6 @@ function App() {
           </div>
         )}
 
-        {/* --- PAINEL VENDEDOR (BADGES VOLTARAM) --- */}
         {pagina === 'perfil' && user && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
@@ -393,6 +377,7 @@ function App() {
                                            {(!l.statusPagamento || l.statusPagamento === 'pendente') && <span className="text-orange-500 font-bold text-xs flex items-center gap-1"><Info size={14}/> AGUARDANDO PAGAMENTO</span>}
                                            {l.statusPagamento === 'validado' && <span className="text-purple-600 font-bold text-xs flex items-center gap-1"><Hourglass size={14}/> RECIBO ENVIADO! AGUARDANDO ADMIN</span>}
                                            {l.statusPagamento === 'aprovado' && <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle size={14}/> PAGAMENTO RETIDO COM SUCESSO!</span>}
+                                           {l.statusPagamento === 'bloqueado' && <span className="text-red-600 font-bold text-xs flex items-center gap-1"><AlertTriangle size={14}/> DISPUTA EM ANÁLISE PELO ADMIN</span>}
                                        </>
                                    )}
                                </div>
