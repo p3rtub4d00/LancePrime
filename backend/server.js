@@ -25,8 +25,8 @@ let leiloes = [
         termino: Date.now() + 600000,
         foto: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800",
         destaque: true,
-        statusPagamento: 'pendente', // pendente -> analise (vendedor) -> validado (admin) -> aprovado (fim)
-        dadosRecibo: null, // Guarda o recibo gerado
+        statusPagamento: 'pendente', 
+        dadosRecibo: null,
         lances: []
     }
 ];
@@ -63,53 +63,56 @@ io.on('connection', (socket) => {
         io.emit('notificacao', { tipo: 'info', msg: `📢 Novo item: ${dados.titulo}` });
     });
 
+    // LANCE MANUAL (Lógica atualizada para aceitar valor customizado)
     socket.on('dar_lance', (dados) => {
         const { idLeilao, valor, usuario, whatsapp } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             const agora = Date.now();
-            if (valor >= leilao.valorAtual + leilao.incrementoMinimo && agora < leilao.termino) {
-                leilao.valorAtual = valor;
-                leilao.lances.unshift({ usuario, whatsapp, valor, data: new Date().toLocaleTimeString() });
+            // Valida se o valor digitado é maior que o mínimo necessário
+            if (valor >= (leilao.valorAtual + leilao.incrementoMinimo) && agora < leilao.termino) {
+                leilao.valorAtual = Number(valor); // Atualiza com o valor digitado
+                leilao.lances.unshift({ usuario, whatsapp, valor: Number(valor), data: new Date().toLocaleTimeString() });
+                
                 if (leilao.termino - agora < 120000) {
                     leilao.termino = agora + 120000;
                     io.emit('notificacao', { tipo: 'warning', msg: `🔥 Tempo extra: ${leilao.item}!` });
                 }
                 io.emit('update_lista', leiloes);
-                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} cobriu a oferta no ${leilao.item}!` });
+                io.emit('notificacao', { tipo: 'success', msg: `💰 ${usuario} deu lance de ${valor} no ${leilao.item}!` });
             }
         }
     });
 
-    // 1. SISTEMA GERA RECIBO (Enviado pelo comprador) -> VAI PARA VENDEDOR
+    // 1. GERA RECIBO (Vai para Vendedor)
     socket.on('gerar_recibo_pagamento', (dados) => {
         const { idLeilao, recibo } = dados;
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
-            leilao.statusPagamento = 'analise'; // Vendedor precisa ver
-            leilao.dadosRecibo = recibo; // Salva o recibo oficial
+            leilao.statusPagamento = 'analise'; // Status que o Vendedor vê
+            leilao.dadosRecibo = recibo;
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `🧾 Recibo #${recibo.id} gerado! Aguardando Vendedor.` });
+            io.emit('notificacao', { tipo: 'info', msg: `🧾 Recibo gerado! Enviado ao Vendedor.` });
         }
     });
 
-    // 2. VENDEDOR CONFIRMA RECIBO -> VAI PARA ADMIN
+    // 2. VENDEDOR VALIDA (Vai para Admin)
     socket.on('vendedor_validar_recibo', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
-            leilao.statusPagamento = 'validado'; // Admin precisa ver
+            leilao.statusPagamento = 'validado'; // Status que o Admin vê
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'info', msg: `🛡️ Vendedor validou o recibo. Admin, verifique o pagamento.` });
+            io.emit('notificacao', { tipo: 'info', msg: `🛡️ Vendedor validou. Admin, libere o pagamento.` });
         }
     });
 
-    // 3. ADMIN APROVA PAGAMENTO -> LIBERA TUDO
+    // 3. ADMIN APROVA (Finaliza)
     socket.on('admin_aprovar_pagamento', (idLeilao) => {
         const leilao = leiloes.find(l => l.id === idLeilao);
         if (leilao) {
             leilao.statusPagamento = 'aprovado';
             io.emit('update_lista', leiloes);
-            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento CONFIRMADO! Entrega liberada.` });
+            io.emit('notificacao', { tipo: 'success', msg: `✅ Pagamento Confirmado! Entrega liberada.` });
         }
     });
 });
